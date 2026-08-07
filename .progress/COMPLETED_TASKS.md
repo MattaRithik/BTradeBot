@@ -12,3 +12,15 @@
 - summary: verified BLPAPI install/pattern, IBKR paper ports + ib_async,
   Kimi base URL + structured outputs, NO official Kimi swarm API
 - output: docs/REFERENCES.md
+
+## Stage B — Bloomberg data layer (2026-08-07)
+- summary: provider interfaces (market/reference/fundamental/news), Bloomberg
+  security+field normalization, CSV/XLSX export adapter (wide/long/single-
+  security layouts), BLPAPI desktop adapter (optional import, injectable for
+  contract tests), data-quality validation (duplicates/OHLC/gaps/stale/future/
+  timezone), `quantctl bloomberg doctor|sample`
+- files: src/quant_platform/data/*, src/quant_platform/cli/bloomberg.py,
+  tests/test_{bloomberg_export,bloomberg_desktop_contract,data_validation}.py
+- tests: +33 (80 total), all passing; ruff clean
+- decisions: export fallback first-class; news NOT_ENTITLED unless proven;
+  corrupt exports raise DataValidationError (never silent)

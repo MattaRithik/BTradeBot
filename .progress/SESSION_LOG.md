@@ -12,3 +12,11 @@
 - fixed: require_visible not raising; StrEnum lint; naive-datetime test
 - 47 tests green, ruff clean; commit 4648919
 - next: Stage B Bloomberg data layer
+- Stage B done: data providers, export+desktop Bloomberg adapters,
+  validation, bloomberg doctor/sample CLI; 80 tests green; committed
+- next: Stage C (repositories, feature engine, sample data)
+- Stage C done: PITRepository (gatekeeper-filtered bars/news/fundamentals +
+  DATA_FETCH audit), features engine (compute_features, defensive as_of
+  filter), sample data generator (GBM prices + [SYNTHETIC] news), `quantctl
+  data sample` CLI; 97 tests green, ruff clean; uncommitted
+- next: Stage D (Kimi provider + multi-agent orchestrator)

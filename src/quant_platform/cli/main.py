@@ -19,8 +19,10 @@ app = typer.Typer(
 console = Console()
 
 from quant_platform.cli.bloomberg import bloomberg_app  # noqa: E402
+from quant_platform.cli.data import data_app  # noqa: E402
 
 app.add_typer(bloomberg_app, name="bloomberg")
+app.add_typer(data_app, name="data")
 
 
 def _settings() -> EnvSettings:
