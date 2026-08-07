@@ -1,16 +1,16 @@
 # Checkpoint
 
-timestamp: 2026-08-08T00:10Z
-current_stage: H — news<->signal<->return + failure analysis
+timestamp: 2026-08-08T00:40Z
+current_stage: I — IBKR paper + safety gate
 current_subtask: starting
-status_estimate: A..G complete; overall ~65%
+status_estimate: A..H complete; overall ~72%
 
 ## Modules
 - completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
-  signals/*, portfolio/*, snapshots/*, backtest/*, CLI doctor + config
-  check + bloomberg doctor/sample + data sample
+  signals/*, portfolio/*, snapshots/*, backtest/*, analysis/*, CLI doctor +
+  config check + bloomberg doctor/sample + data sample
 - partial: none
-- not_started: analysis, execution, dashboard
+- not_started: execution, dashboard
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
@@ -32,9 +32,10 @@ status_estimate: A..G complete; overall ~65%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage H: analysis/attribution.py (directional accuracy, IC Pearson/Spearman,
-event studies 5/21/42d, evidence-category performance, confidence
-calibration — no causal claims from correlation), analysis/failure.py
-(FailureRecord taxonomy; consumes frozen snapshots + realized results;
-NEVER mutates history) + tests. See core/schemas/ops.py FailureRecord and
-docs/IMPLEMENTATION_PLAN.md Stage H.
+Stage I: execution/broker.py (BrokerAdapter ABC, MockBroker), execution/
+ibkr_paper.py (ib_async optional import, DU* paper accounts only),
+execution/kill_switch.py (file-based GlobalKillSwitch), execution/pipeline.py
+(OrderIntent idempotency-keyed, PreTradeRiskCheck per risk.yaml execution
+section, reconciliation), quantctl paper doctor|dry-run + tests. See
+core/schemas/execution.py, configs/risk.yaml execution section, configs/
+ibkr.yaml, docs/IMPLEMENTATION_PLAN.md Stage I.

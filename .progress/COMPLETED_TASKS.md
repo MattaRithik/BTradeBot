@@ -88,3 +88,15 @@
 - tests: +19 (208 total), all passing; ruff clean
 - decisions: entry-day return includes the up-front cost hit; empty book
   earns the cash rate; engine consumes ONLY the frozen snapshot + prices
+
+## Stage H — News↔signal↔return + failure analysis (2026-08-07)
+- summary: attribution analytics (directional accuracy, IC Pearson/Spearman,
+  event studies 5/21/42d, evidence-category performance, confidence
+  calibration — all descriptive, documented as non-causal); failure analysis
+  (deterministic classify_failure heuristic over realized metrics,
+  build_failure_record assembling FailureRecord with optional failure-agent
+  narrative; frozen snapshot read-only)
+- files: src/quant_platform/analysis/*, tests/test_analysis.py
+- tests: +18 (226 total), all passing; ruff clean
+- decisions: classification is heuristic-first-pass; narrative/lesson may
+  come from the failure agent but Python assembles the record

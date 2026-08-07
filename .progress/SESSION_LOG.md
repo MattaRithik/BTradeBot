@@ -55,3 +55,9 @@
   baselines, parquet persistence, BACKTEST_STARTED/COMPLETED audit);
   208 tests green, ruff clean
 - next: Stage H (news<->signal<->return + failure analysis)
+- Stage H done: analysis/attribution.py (directional accuracy, Pearson/
+  Spearman IC, event studies 5/21/42d, category performance, confidence
+  calibration; association-only, no causal claims), analysis/failure.py
+  (deterministic classify_failure heuristic + build_failure_record with
+  optional agent narrative; snapshot never mutated); 226 tests green
+- next: Stage I (IBKR paper + safety gate)
