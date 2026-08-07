@@ -61,3 +61,11 @@
   (deterministic classify_failure heuristic + build_failure_record with
   optional agent narrative; snapshot never mutated); 226 tests green
 - next: Stage I (IBKR paper + safety gate)
+- Stage I done: execution/broker.py (BrokerAdapter ABC, MockBroker with
+  cash/position accounting, validate_paper_account DU* only), kill_switch.py
+  (file-based GlobalKillSwitch, KILL_SWITCH_CHANGED audit), ibkr_paper.py
+  (ib_async optional import, honest offline error, paper ports only),
+  pipeline.py (deterministic idempotency-keyed OrderIntents, pre-trade checks
+  per risk.yaml execution section, DRY_RUN default, full audit trail),
+  quantctl paper doctor|dry-run verified; 245 tests green, ruff clean
+- next: Stage J (dashboard)

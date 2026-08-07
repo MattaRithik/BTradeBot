@@ -100,3 +100,17 @@
 - tests: +18 (226 total), all passing; ruff clean
 - decisions: classification is heuristic-first-pass; narrative/lesson may
   come from the failure agent but Python assembles the record
+
+## Stage I — IBKR paper + safety gate (2026-08-08)
+- summary: BrokerAdapter ABC + MockBroker (immediate reference-price fills,
+  cash/position accounting); GlobalKillSwitch (file-based, audited);
+  IBKRPaperBroker (ib_async optional import, DU* account validation, paper
+  ports, import-safe offline); execution pipeline (PortfolioTarget →
+  idempotency-keyed OrderIntents → pre-trade checks: notional/staleness/
+  duplicate/concurrency/turnover/kill-switch → DRY_RUN default → broker);
+  quantctl paper doctor|dry-run CLIs verified end-to-end
+- files: src/quant_platform/execution/*, src/quant_platform/cli/paper.py,
+  tests/test_execution.py
+- tests: +19 (245 total), all passing; ruff clean
+- decisions: live accounts refused via DU* prefix at TWO layers (adapter +
+  pipeline config); dry-run demo order sized under max_order_notional
