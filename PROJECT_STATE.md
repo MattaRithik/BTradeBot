@@ -10,8 +10,8 @@ Last updated: 2026-08-07 (session 1)
 | B | Bloomberg adapters + normalization + diagnostics | ✅ COMPLETE (80 tests) |
 | C | Point-in-time engine + features + evidence | ✅ COMPLETE (97 tests) |
 | D | Kimi provider + multi-agent orchestrator | ✅ COMPLETE (130 tests) |
-| E | Thesis/mapping/validation/ranking | 🔵 IN PROGRESS |
-| F | Signals + portfolio + risk | ⬜ |
+| E | Thesis/mapping/validation/ranking | ✅ COMPLETE (163 tests) |
+| F | Signals + portfolio + risk | 🔵 IN PROGRESS |
 | G | Snapshots + walk-forward backtesting | ⬜ |
 | H | News/trade analysis + failure analysis | ⬜ |
 | I | IBKR paper integration + safety gate | ⬜ |
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-130 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+163 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 

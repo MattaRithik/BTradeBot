@@ -29,3 +29,12 @@
 - note: subagent hit a mid-task quota stop; verified its output by review,
   wrote the kimi-contract + orchestrator tests in the main session
 - next: Stage E (thesis/mapping/validation/ranking)
+- Stage E done: research/ — EvidenceEngine (LLM extracts card payloads, Python
+  assigns provenance + PIT fields, hallucinated citations dropped), build_thesis
+  (deterministic assembly, causal chains from evidence categories), mapping
+  (tradability filters from universe.yaml, direct/watchlist exposure), scoring
+  (weights-validated composite, risk components subtracted), validation
+  (bull/bear/risk/leakage debate then judge; leakage forces REJECTED;
+  VALIDATION_DECISION audit), ranking (threshold selection, choose-NOTHING
+  explicit); 163 tests green, ruff clean
+- next: Stage F (signals + portfolio + risk)

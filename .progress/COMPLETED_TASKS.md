@@ -43,3 +43,18 @@
 - decisions: internal orchestrator confirmed (no official Kimi swarm API);
   agents never receive numbers to compute — output schema is AgentArgument
   only; cache hits skip cost accounting
+
+## Stage E — Thesis / mapping / validation / ranking (2026-08-07)
+- summary: research/ layer — EvidenceEngine (news→EvidenceCard via provider,
+  Python assigns provenance/PIT fields, unknown-citation cards dropped),
+  thesis builder (agent narrative + deterministic causal-chain assembly),
+  security/ETF mapping + tradability filters (universe.yaml thresholds),
+  transparent scoring (scoring.yaml weights validated to sum 1.0, risk
+  components subtracted), validation debate (bull/bear/risk/leakage fan-out
+  then judge seeing the debate verbatim; leakage_detected ⇒ REJECTED),
+  cross-sector ranking with explicit choose-NOTHING outcome
+- files: src/quant_platform/research/*, tests/test_research.py
+- tests: +33 (163 total), all passing; ruff clean
+- decisions: leakage-agent contract = direction negative + conf>=0.5 means
+  leakage; judge approve bar conf>=0.6 positive; missing_evidence ⇒
+  NEEDS_MORE_EVIDENCE; REJECTED/below-threshold sectors can never be selected

@@ -1,15 +1,15 @@
 # Checkpoint
 
-timestamp: 2026-08-07T22:30Z
-current_stage: E — thesis / mapping / validation / ranking
+timestamp: 2026-08-07T23:05Z
+current_stage: F — signals + portfolio + risk
 current_subtask: starting
-status_estimate: A,B,C,D complete; overall ~32%
+status_estimate: A,B,C,D,E complete; overall ~45%
 
 ## Modules
-- completed: core/*, data/*, features/engine, models/*, agents/*,
+- completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
   CLI doctor + config check + bloomberg doctor/sample + data sample
 - partial: none
-- not_started: research, signals, portfolio, snapshots, backtest, analysis,
+- not_started: signals, portfolio, snapshots, backtest, analysis,
   execution, dashboard
 
 ## External services
@@ -32,8 +32,8 @@ status_estimate: A,B,C,D complete; overall ~32%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage E per .progress/CURRENT_TASK.md: research/evidence.py (news→EvidenceCard),
-research/thesis.py, research/mapping.py (+tradability), research/scoring.py
-(Python-only, configs/scoring.yaml), research/validation.py (debate via
-Stage D agents; leakage_detected ⇒ REJECTED), research/ranking.py (choose
-nothing allowed) + tests.
+Stage F: signals/engine.py (sector labels vs actionable security signals,
+schema-enforced), portfolio/builders.py (long basket, ETF rotation, L/S,
+momentum, ensemble — Python weights only), portfolio/risk.py (max
+ticker/sector/gross/net, liquidity, vol adjust, cash allowed incl. 100%
+cash) + tests. See docs/IMPLEMENTATION_PLAN.md Stage F.
