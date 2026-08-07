@@ -47,3 +47,11 @@
   switch, liquidity floor, vol-target scale-down; all interventions warned);
   189 tests green, ruff clean
 - next: Stage G (snapshots + walk-forward backtest)
+- Stage G done: snapshots/freeze.py (frozen PredictionSnapshot, config+data
+  hashes, PREDICTION_FROZEN audit), backtest/splits.py (rolling walk-forward),
+  backtest/metrics.py (Sharpe/Sortino/drawdown/hit/IR, zero-vol tolerant),
+  backtest/engine.py (execution delay, commission+slippage, cash return,
+  borrow, per-ticker contributions, benchmarks + equal-weight/momentum
+  baselines, parquet persistence, BACKTEST_STARTED/COMPLETED audit);
+  208 tests green, ruff clean
+- next: Stage H (news<->signal<->return + failure analysis)

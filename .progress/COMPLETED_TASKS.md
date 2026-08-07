@@ -74,3 +74,17 @@
 - decisions: builders never apply risk limits themselves (risk.py is a
   separate, auditable pass); over-100% gross targets must carry an explicit
   leverage/short warning (schema-enforced)
+
+## Stage G — Snapshots + walk-forward backtesting (2026-08-07)
+- summary: freeze_snapshot (immutable PredictionSnapshot with config/data
+  hashes, persisted + audited; FutureDataGate integration verified);
+  rolling walk-forward splits (pandas DateOffset); backtest engine with
+  execution delay (never same-bar), per-order commission + min, slippage
+  bps, cash return, short borrow, per-ticker TradeContribution, benchmark
+  comparison + equal_weight_universe/simple_momentum baselines; metrics
+  (Sharpe/Sortino/maxDD/hit/IR with zero-vol guards)
+- files: src/quant_platform/snapshots/*, src/quant_platform/backtest/*,
+  tests/test_{snapshots,backtest}.py
+- tests: +19 (208 total), all passing; ruff clean
+- decisions: entry-day return includes the up-front cost hit; empty book
+  earns the cash rate; engine consumes ONLY the frozen snapshot + prices

@@ -1,16 +1,16 @@
 # Checkpoint
 
-timestamp: 2026-08-07T23:40Z
-current_stage: G — snapshots + walk-forward backtest
+timestamp: 2026-08-08T00:10Z
+current_stage: H — news<->signal<->return + failure analysis
 current_subtask: starting
-status_estimate: A..F complete; overall ~55%
+status_estimate: A..G complete; overall ~65%
 
 ## Modules
 - completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
-  signals/*, portfolio/*, CLI doctor + config check + bloomberg doctor/sample
-  + data sample
+  signals/*, portfolio/*, snapshots/*, backtest/*, CLI doctor + config
+  check + bloomberg doctor/sample + data sample
 - partial: none
-- not_started: snapshots, backtest, analysis, execution, dashboard
+- not_started: analysis, execution, dashboard
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
@@ -32,9 +32,9 @@ status_estimate: A..F complete; overall ~55%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage G: snapshots/freeze.py (PredictionSnapshot frozen model, config+data
-hash, persistence via ArtifactStore), backtest/splits.py (rolling
-walk-forward), backtest/engine.py (commission, slippage, delay, turnover),
-backtest/metrics.py (Sharpe/Sortino/drawdown/hit rate/IR), benchmarks +
-baselines, per-ticker/sector contribution + tests. See
-docs/IMPLEMENTATION_PLAN.md Stage G and core/schemas/backtest.py.
+Stage H: analysis/attribution.py (directional accuracy, IC Pearson/Spearman,
+event studies 5/21/42d, evidence-category performance, confidence
+calibration — no causal claims from correlation), analysis/failure.py
+(FailureRecord taxonomy; consumes frozen snapshots + realized results;
+NEVER mutates history) + tests. See core/schemas/ops.py FailureRecord and
+docs/IMPLEMENTATION_PLAN.md Stage H.

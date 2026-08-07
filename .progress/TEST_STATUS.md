@@ -2,7 +2,7 @@
 
 Last verified: 2026-08-07 (session 1, Stage D)
 
-Full suite: `pytest` → **189 passed, 0 failed, 0 skipped**
+Full suite: `pytest` → **208 passed, 0 failed, 0 skipped**
 Lint: `ruff check src tests` → clean
 Typecheck: mypy configured but not yet enforced (Stage K)
 
@@ -20,5 +20,7 @@ Targeted:
 - research: `pytest tests/test_research.py`
 - signals: `pytest tests/test_signals.py`
 - portfolio: `pytest tests/test_portfolio.py`
+- snapshots: `pytest tests/test_snapshots.py`
+- backtest: `pytest tests/test_backtest.py`
 
-Last known green commit: see `git log --oneline -1` (Stage F)
+Last known green commit: see `git log --oneline -1` (Stage G)

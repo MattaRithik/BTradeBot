@@ -12,8 +12,8 @@ Last updated: 2026-08-07 (session 1)
 | D | Kimi provider + multi-agent orchestrator | ✅ COMPLETE (130 tests) |
 | E | Thesis/mapping/validation/ranking | ✅ COMPLETE (163 tests) |
 | F | Signals + portfolio + risk | ✅ COMPLETE (189 tests) |
-| G | Snapshots + walk-forward backtesting | 🔵 IN PROGRESS |
-| H | News/trade analysis + failure analysis | ⬜ |
+| G | Snapshots + walk-forward backtesting | ✅ COMPLETE (208 tests) |
+| H | News/trade analysis + failure analysis | 🔵 IN PROGRESS |
 | I | IBKR paper integration + safety gate | ⬜ |
 | J | Dashboard | ⬜ |
 | K | Hardening + docs + demo | ⬜ |
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-189 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+208 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 
