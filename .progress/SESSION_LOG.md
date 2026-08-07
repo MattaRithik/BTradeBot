@@ -74,3 +74,14 @@
   assert_no_sector_tickers UI guard), dashboard/app.py (wide layout, banner,
   6 pages), quantctl dashboard launcher; 254 tests green, ruff clean
 - next: Stage K (hardening + demo + docs)
+- Stage K done: pipeline.py run_demo (end-to-end offline integration:
+  synthetic data -> gatekeeper repo -> features -> evidence -> theses ->
+  validation -> scoring -> ranking -> signals -> portfolio+risk -> frozen
+  snapshot -> FutureDataGate -> backtest -> failure record), quantctl demo
+  CLI, integration tests (incl. seed reproducibility), README.md,
+  docs/COLLEGE_CHECKLIST.md, .github/workflows/ci.yml, RESUME_PROMPT refresh;
+  fixed: FailureRecord saved into snapshots/ dir (added analysis/ subdir),
+  tradability loop crashed on tickers absent from the demo export (honest
+  DataValidationError -> untradable); 259 tests green, ruff clean, demo
+  verified end-to-end
+- PLATFORM FEATURE COMPLETE (A..K)

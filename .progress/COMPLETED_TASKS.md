@@ -125,3 +125,18 @@
   cli/main.py (dashboard command)
 - tests: +9 (254 total), all passing; ruff clean
 - decisions: dashboard never computes or fetches — it renders artifacts
+
+## Stage K — Hardening + demo + docs (2026-08-08)
+- summary: run_demo end-to-end offline pipeline (real code paths throughout:
+  gatekeeper repo, features, evidence, theses, validation debate, scoring,
+  ranking, signals, portfolio+risk, snapshot freeze, FutureDataGate,
+  backtest, failure record) + quantctl demo CLI + integration tests with
+  seed reproducibility; README.md; docs/COLLEGE_CHECKLIST.md; GitHub CI
+  workflow; store gained an analysis/ subdir for FailureRecords
+- files: src/quant_platform/pipeline.py, cli/demo.py, tests/
+  test_demo_pipeline.py, README.md, docs/COLLEGE_CHECKLIST.md,
+  .github/workflows/ci.yml
+- tests: +5 (259 total), all passing; ruff clean; demo verified
+- bugs fixed: FailureRecord polluting snapshots/ artifact dir; demo
+  tradability loop raising on tickers missing from the export (now honestly
+  untradable)

@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-07 (session 1)
+Last updated: 2026-08-08 (session 2) — ALL STAGES COMPLETE
 
 ## Overall status
 
@@ -16,7 +16,7 @@ Last updated: 2026-08-07 (session 1)
 | H | News/trade analysis + failure analysis | ✅ COMPLETE (226 tests) |
 | I | IBKR paper integration + safety gate | ✅ COMPLETE (245 tests) |
 | J | Dashboard | ✅ COMPLETE (254 tests) |
-| K | Hardening + docs + demo | 🔵 IN PROGRESS |
+| K | Hardening + docs + demo | ✅ COMPLETE (259 tests) |
 
 ## Verified environment facts
 
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-254 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+259 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 

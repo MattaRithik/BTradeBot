@@ -1,9 +1,9 @@
 # Checkpoint
 
-timestamp: 2026-08-08T01:40Z
-current_stage: K — hardening + demo + docs
-current_subtask: starting
-status_estimate: A..J complete; overall ~90%
+timestamp: 2026-08-08T02:20Z
+current_stage: COMPLETE — all stages A..K done
+current_subtask: none
+status_estimate: 100% (optional polish only — see NEXT_STEPS.md)
 
 ## Modules
 - completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
@@ -11,7 +11,7 @@ status_estimate: A..J complete; overall ~90%
   CLI doctor + config check + bloomberg doctor/sample + data sample +
   paper doctor/dry-run, dashboard/*
 - partial: none
-- not_started: none (Stage K = demo + docs + CI + final checkpoint)
+- not_started: none
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
@@ -33,9 +33,7 @@ status_estimate: A..J complete; overall ~90%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage K: quantctl demo (end-to-end OFFLINE run on synthetic data: sample
-data -> features -> evidence -> theses -> validation -> ranking -> signals
--> portfolio+risk -> snapshot freeze -> backtest -> failure analysis),
-README.md, docs update (ARCHITECTURE module map statuses), college
-terminal checklist, .github/workflows CI, final checkpoint + RESUME_PROMPT
-refresh. See docs/IMPLEMENTATION_PLAN.md Stage K.
+Nothing required — platform is feature complete. Optional: college terminal
+run (docs/COLLEGE_CHECKLIST.md), real Kimi/IBKR sessions, mypy enforcement.
+If resuming after a break, paste .progress/RESUME_PROMPT.md into a fresh
+session.

@@ -20,11 +20,13 @@ console = Console()
 
 from quant_platform.cli.bloomberg import bloomberg_app  # noqa: E402
 from quant_platform.cli.data import data_app  # noqa: E402
+from quant_platform.cli.demo import register as register_demo  # noqa: E402
 from quant_platform.cli.paper import paper_app  # noqa: E402
 
 app.add_typer(bloomberg_app, name="bloomberg")
 app.add_typer(data_app, name="data")
 app.add_typer(paper_app, name="paper")
+register_demo(app)
 
 
 def _settings() -> EnvSettings:
