@@ -11,8 +11,8 @@ Last updated: 2026-08-07 (session 1)
 | C | Point-in-time engine + features + evidence | ✅ COMPLETE (97 tests) |
 | D | Kimi provider + multi-agent orchestrator | ✅ COMPLETE (130 tests) |
 | E | Thesis/mapping/validation/ranking | ✅ COMPLETE (163 tests) |
-| F | Signals + portfolio + risk | 🔵 IN PROGRESS |
-| G | Snapshots + walk-forward backtesting | ⬜ |
+| F | Signals + portfolio + risk | ✅ COMPLETE (189 tests) |
+| G | Snapshots + walk-forward backtesting | 🔵 IN PROGRESS |
 | H | News/trade analysis + failure analysis | ⬜ |
 | I | IBKR paper integration + safety gate | ⬜ |
 | J | Dashboard | ⬜ |
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-163 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+189 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 

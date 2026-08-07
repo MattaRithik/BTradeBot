@@ -58,3 +58,19 @@
 - decisions: leakage-agent contract = direction negative + conf>=0.5 means
   leakage; judge approve bar conf>=0.6 positive; missing_evidence ⇒
   NEEDS_MORE_EVIDENCE; REJECTED/below-threshold sectors can never be selected
+
+## Stage F — Signals + portfolio + risk (2026-08-07)
+- summary: signal engine (sector labels strictly non-tradable, actionable
+  signals only for tradable securities/ETFs in selected sectors, explicit
+  CASH signal when nothing selected); 8 strategy builders (long_basket,
+  score_weighted, etf_rotation, long_short, momentum, risk_parity, ensemble,
+  cash) producing schema-validated PortfolioTargets; deterministic risk
+  constraints (risk.yaml: ticker/sector/gross/net caps, max positions,
+  shorting switch, liquidity floor, vol-target scale-down) with every
+  intervention recorded in warnings
+- files: src/quant_platform/signals/*, src/quant_platform/portfolio/*,
+  tests/test_{signals,portfolio}.py
+- tests: +26 (189 total), all passing; ruff clean
+- decisions: builders never apply risk limits themselves (risk.py is a
+  separate, auditable pass); over-100% gross targets must carry an explicit
+  leverage/short warning (schema-enforced)

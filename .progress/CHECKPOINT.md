@@ -1,16 +1,16 @@
 # Checkpoint
 
-timestamp: 2026-08-07T23:05Z
-current_stage: F — signals + portfolio + risk
+timestamp: 2026-08-07T23:40Z
+current_stage: G — snapshots + walk-forward backtest
 current_subtask: starting
-status_estimate: A,B,C,D,E complete; overall ~45%
+status_estimate: A..F complete; overall ~55%
 
 ## Modules
 - completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
-  CLI doctor + config check + bloomberg doctor/sample + data sample
+  signals/*, portfolio/*, CLI doctor + config check + bloomberg doctor/sample
+  + data sample
 - partial: none
-- not_started: signals, portfolio, snapshots, backtest, analysis,
-  execution, dashboard
+- not_started: snapshots, backtest, analysis, execution, dashboard
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
@@ -32,8 +32,9 @@ status_estimate: A,B,C,D,E complete; overall ~45%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage F: signals/engine.py (sector labels vs actionable security signals,
-schema-enforced), portfolio/builders.py (long basket, ETF rotation, L/S,
-momentum, ensemble — Python weights only), portfolio/risk.py (max
-ticker/sector/gross/net, liquidity, vol adjust, cash allowed incl. 100%
-cash) + tests. See docs/IMPLEMENTATION_PLAN.md Stage F.
+Stage G: snapshots/freeze.py (PredictionSnapshot frozen model, config+data
+hash, persistence via ArtifactStore), backtest/splits.py (rolling
+walk-forward), backtest/engine.py (commission, slippage, delay, turnover),
+backtest/metrics.py (Sharpe/Sortino/drawdown/hit rate/IR), benchmarks +
+baselines, per-ticker/sector contribution + tests. See
+docs/IMPLEMENTATION_PLAN.md Stage G and core/schemas/backtest.py.

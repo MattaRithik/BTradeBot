@@ -38,3 +38,12 @@
   VALIDATION_DECISION audit), ranking (threshold selection, choose-NOTHING
   explicit); 163 tests green, ruff clean
 - next: Stage F (signals + portfolio + risk)
+- Stage F done: signals/engine.py (sector labels action_allowed=False vs
+  actionable SECURITY/ETF signals only for tradable names in SELECTED sectors,
+  explicit CASH signal when nothing selected, SIGNAL_CREATED audit),
+  portfolio/builders.py (8 builders: long_basket, score_weighted,
+  etf_rotation, long_short, momentum, risk_parity, ensemble, cash),
+  portfolio/risk.py (ticker/sector/gross/net caps, position count, shorting
+  switch, liquidity floor, vol-target scale-down; all interventions warned);
+  189 tests green, ruff clean
+- next: Stage G (snapshots + walk-forward backtest)

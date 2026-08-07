@@ -2,7 +2,7 @@
 
 Last verified: 2026-08-07 (session 1, Stage D)
 
-Full suite: `pytest` → **163 passed, 0 failed, 0 skipped**
+Full suite: `pytest` → **189 passed, 0 failed, 0 skipped**
 Lint: `ruff check src tests` → clean
 Typecheck: mypy configured but not yet enforced (Stage K)
 
@@ -18,5 +18,7 @@ Targeted:
 - kimi contract: `pytest tests/test_kimi_provider_contract.py`
 - orchestrator: `pytest tests/test_orchestrator.py`
 - research: `pytest tests/test_research.py`
+- signals: `pytest tests/test_signals.py`
+- portfolio: `pytest tests/test_portfolio.py`
 
-Last known green commit: see `git log --oneline -1` (Stage E)
+Last known green commit: see `git log --oneline -1` (Stage F)
