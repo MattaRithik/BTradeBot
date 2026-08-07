@@ -114,3 +114,14 @@
 - tests: +19 (245 total), all passing; ruff clean
 - decisions: live accounts refused via DU* prefix at TWO layers (adapter +
   pipeline config); dry-run demo order sized under max_order_notional
+
+## Stage J — Dashboard (2026-08-08)
+- summary: streamlit-free loaders (artifact-only reads: snapshots/rankings/
+  signals/backtests/audit; honest system status; sector-label UI guard that
+  refuses to render a sector carrying a ticker); Streamlit app (wide layout,
+  NO LIVE TRADING banner, system health / ranking / signals / backtests /
+  paper trading / audit pages); quantctl dashboard launcher
+- files: src/quant_platform/dashboard/*, tests/test_dashboard.py,
+  cli/main.py (dashboard command)
+- tests: +9 (254 total), all passing; ruff clean
+- decisions: dashboard never computes or fetches — it renders artifacts

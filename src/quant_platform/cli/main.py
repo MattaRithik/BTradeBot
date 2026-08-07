@@ -137,5 +137,23 @@ def config_check() -> None:
     console.print(f"[green]OK[/green] trading_mode={settings.trading_mode} dry_run={settings.dry_run}")
 
 
+@app.command()
+def dashboard() -> None:
+    """Launch the Streamlit dashboard (reads artifacts only)."""
+    import importlib.util
+    import subprocess
+
+    if importlib.util.find_spec("streamlit") is None:
+        console.print(
+            "[red]streamlit not installed[/red] — install the 'dashboard' extra: "
+            "pip install -e \".[dashboard]\""
+        )
+        raise typer.Exit(code=1)
+    from quant_platform.dashboard import app as _app
+
+    app_path = Path(_app.__file__)
+    raise typer.Exit(code=subprocess.call(["streamlit", "run", str(app_path)]))
+
+
 if __name__ == "__main__":
     sys.exit(app())

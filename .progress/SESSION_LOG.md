@@ -69,3 +69,8 @@
   per risk.yaml execution section, DRY_RUN default, full audit trail),
   quantctl paper doctor|dry-run verified; 245 tests green, ruff clean
 - next: Stage J (dashboard)
+- Stage J done: dashboard/loaders.py (streamlit-free, artifact-only: snapshots,
+  rankings, signal packages, backtests, audit frame, honest system_status,
+  assert_no_sector_tickers UI guard), dashboard/app.py (wide layout, banner,
+  6 pages), quantctl dashboard launcher; 254 tests green, ruff clean
+- next: Stage K (hardening + demo + docs)

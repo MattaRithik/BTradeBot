@@ -15,8 +15,8 @@ Last updated: 2026-08-07 (session 1)
 | G | Snapshots + walk-forward backtesting | ✅ COMPLETE (208 tests) |
 | H | News/trade analysis + failure analysis | ✅ COMPLETE (226 tests) |
 | I | IBKR paper integration + safety gate | ✅ COMPLETE (245 tests) |
-| J | Dashboard | 🔵 IN PROGRESS |
-| K | Hardening + docs + demo | ⬜ |
+| J | Dashboard | ✅ COMPLETE (254 tests) |
+| K | Hardening + docs + demo | 🔵 IN PROGRESS |
 
 ## Verified environment facts
 
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-245 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+254 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 

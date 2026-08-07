@@ -1,17 +1,17 @@
 # Checkpoint
 
-timestamp: 2026-08-08T01:10Z
-current_stage: J — dashboard
+timestamp: 2026-08-08T01:40Z
+current_stage: K — hardening + demo + docs
 current_subtask: starting
-status_estimate: A..I complete; overall ~80%
+status_estimate: A..J complete; overall ~90%
 
 ## Modules
 - completed: core/*, data/*, features/engine, models/*, agents/*, research/*,
   signals/*, portfolio/*, snapshots/*, backtest/*, analysis/*, execution/*,
   CLI doctor + config check + bloomberg doctor/sample + data sample +
-  paper doctor/dry-run
+  paper doctor/dry-run, dashboard/*
 - partial: none
-- not_started: dashboard
+- not_started: none (Stage K = demo + docs + CI + final checkpoint)
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
@@ -33,9 +33,9 @@ status_estimate: A..I complete; overall ~80%
 - latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage J: dashboard/ Streamlit app reading ARTIFACTS ONLY (data/ store);
-pages: system health (Bloomberg/Kimi/IBKR status), theses, signals,
-portfolio, snapshots, backtests, paper trading, audit; "NO LIVE TRADING"
-banner; sectors never shown as tickers. See configs/dashboard.yaml and
-docs/IMPLEMENTATION_PLAN.md Stage J. Keep import-light so tests can import
-helpers without streamlit installed.
+Stage K: quantctl demo (end-to-end OFFLINE run on synthetic data: sample
+data -> features -> evidence -> theses -> validation -> ranking -> signals
+-> portfolio+risk -> snapshot freeze -> backtest -> failure analysis),
+README.md, docs update (ARCHITECTURE module map statuses), college
+terminal checklist, .github/workflows CI, final checkpoint + RESUME_PROMPT
+refresh. See docs/IMPLEMENTATION_PLAN.md Stage K.
