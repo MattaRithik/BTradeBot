@@ -1,0 +1,7 @@
+# Benchmarks compared in every walk-forward evaluation.
+benchmarks:
+  primary: [SPY, QQQ, SMH, SOXX]
+  baselines:
+    - equal_weight_universe   # equal-weight of the selected universe
+    - simple_momentum         # 63d momentum top-N baseline
+risk_free_rate_annual: 0.04   # used for Sharpe/Sortino; cash return assumption

@@ -1,0 +1,19 @@
+# Bloomberg data layer.
+mode: auto            # auto | desktop_api | export (auto = try API, fall back honestly)
+desktop_api:
+  service_refdata: "//blp/refdata"
+  request_timeout_ms: 30_000
+  max_securities_per_request: 50
+historical:
+  fields: [PX_OPEN, PX_HIGH, PX_LOW, PX_LAST, PX_VOLUME]
+  periodicity: DAILY
+reference_fields: [CUR_MKT_CAP, PE_RATIO, PX_TO_BOOK_RATIO, SHORT_INT_RATIO, EQY_FUND_CRNCY]
+news:
+  enabled: false      # only enable after entitlement is PROVEN by `bloomberg doctor`
+export:
+  # CSV/XLSX fallback import directory (Bloomberg terminal exports land here)
+  inbox: "data/raw/bloomberg_exports"
+corporate_actions:
+  # Bloomberg PX_LAST is split-adjusted by default; dividends NOT reinvested
+  # unless total-return fields are imported. Documented in docs/BLOOMBERG_SETUP.md
+  adjusted_close_assumption: split_adjusted_only

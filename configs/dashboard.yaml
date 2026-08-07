@@ -1,0 +1,7 @@
+dashboard:
+  title: "Quant Research & Paper Trading Platform"
+  banner: "RESEARCH / PAPER TRADING SYSTEM — NO LIVE TRADING"
+  refresh_seconds: 30
+logging:
+  level: INFO
+  dir: logs

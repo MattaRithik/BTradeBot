@@ -1,0 +1,25 @@
+# Risk limits for portfolio construction AND the paper-trading safety gate.
+portfolio:
+  max_ticker_weight: 0.15
+  max_sector_weight: 0.35
+  max_gross_exposure: 1.0
+  max_net_exposure: 1.0
+  max_positions: 15
+  allow_shorting: false
+  allow_leveraged_etfs: false
+  volatility_target_annual: 0.25     # vol adjustment cap
+  min_liquidity_dollar_volume: 5_000_000
+
+# Pre-trade safety gate (paper execution). All must pass or no order is sent.
+execution:
+  max_order_notional: 25_000
+  max_position_notional: 100_000
+  max_portfolio_gross: 1_000_000
+  max_daily_turnover: 250_000
+  max_daily_loss: 50_000             # paper simulation guard
+  max_concurrent_orders: 10
+  stale_signal_seconds: 86_400       # 24h
+  stale_price_seconds: 900           # 15 min
+  require_paper_account_prefix: "DU" # IBKR paper accounts start with DU
+
+kill_switch_file: "data/paper_trading/KILL_SWITCH"

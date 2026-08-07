@@ -1,0 +1,35 @@
+# Model routing: which configured model handles which task type.
+# Provider settings (base url, key) come from the environment, never from here.
+default_model: kimi-default
+models:
+  kimi-default:
+    provider: kimi
+    model_env: KIMI_MODEL        # actual model name read from environment
+    max_tokens: 4096
+    temperature: 0.2
+  mock:
+    provider: mock
+    max_tokens: 2048
+    temperature: 0.0
+routing:
+  macro: kimi-default
+  sector: kimi-default
+  news_event: kimi-default
+  fundamental: kimi-default
+  supply_chain: kimi-default
+  valuation: kimi-default
+  bull: kimi-default
+  bear: kimi-default
+  risk: kimi-default
+  leakage: kimi-default
+  judge: kimi-default
+  cross_sector: kimi-default
+  failure_analysis: kimi-default
+gateway:
+  timeout_seconds: 60
+  max_retries: 3
+  backoff_base_seconds: 1.0
+  max_concurrency: 8
+  cache_enabled: true
+  # USD per 1M tokens (input, output) — update from official pricing when known.
+  pricing_usd_per_mtok: {}

@@ -1,0 +1,27 @@
+# Target research sectors. Everything downstream is driven by this config —
+# sectors are NEVER hardcoded in business logic.
+sectors:
+  - id: ai_infrastructure
+    label: "AI Infrastructure"
+    description: "Accelerators, AI servers, networking, cloud AI capacity"
+  - id: memory_storage
+    label: "Memory & Storage"
+    description: "HBM, DRAM, NAND, storage controllers"
+  - id: cpu_inference
+    label: "CPU / Inference"
+    description: "CPUs, inference silicon, edge AI compute"
+  - id: datacenter_power
+    label: "Data Center Power / Cooling / Grid"
+    description: "Power generation, grid equipment, liquid cooling, electrical gear"
+  - id: robotics
+    label: "Robotics / Physical AI"
+    description: "Humanoids, industrial automation, autonomy"
+  - id: biotech_automation
+    label: "Biotech Automation"
+    description: "Lab automation, AI drug discovery tooling"
+  - id: critical_minerals
+    label: "Critical Minerals"
+    description: "Copper, uranium, rare earths, lithium supply chains"
+  - id: crypto_infrastructure
+    label: "Crypto Infrastructure"
+    description: "Exchanges, miners, custody, blockchain infrastructure"

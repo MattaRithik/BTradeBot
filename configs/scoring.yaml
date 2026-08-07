@@ -1,0 +1,16 @@
+# Composite opportunity score weights (must sum to 1.0).
+# Transparent Python formulas only — no scoring inside any LLM.
+weights:
+  trend_strength: 0.15
+  evidence_quality: 0.15
+  supply_chain_confidence: 0.10
+  market_confirmation: 0.15
+  fundamental_confirmation: 0.10
+  valuation_risk: 0.10          # subtracted (risk)
+  crowding_risk: 0.05           # subtracted (risk)
+  liquidity: 0.05
+  macro_alignment: 0.05
+  validation_strength: 0.10
+risk_subtracted: [valuation_risk, crowding_risk]
+# Minimum composite score for a sector to be selectable at all.
+selection_threshold: 0.55

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Secrets — NEVER commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Data artifacts — raw/proprietary data must not be committed
+data/raw/*
+data/normalized/*
+data/features/*
+data/evidence/*
+data/snapshots/*
+data/backtests/*
+data/paper_trading/*
+!data/**/.gitkeep
+!data/raw/sample/**
+*.parquet
+*.duckdb
+*.duckdb.wal
+
+# Logs
+logs/*.log
+logs/*.jsonl
+!logs/.gitkeep
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,38 @@
+# Security universe: initial candidate mapping per sector plus ETFs.
+# Bloomberg-style identifiers are normalized by the data layer; the full
+# original identifier is preserved as raw_security.
+universe:
+  ai_infrastructure:
+    securities: [NVDA, AVGO, ANET, MSFT, GOOGL, AMZN, ORCL, SMCI, ARM]
+    etfs: [SMH, SOXX, QQQ]
+  memory_storage:
+    securities: [MU, WDC, STX]
+    etfs: [SMH, SOXX]
+  cpu_inference:
+    securities: [AMD, INTC, QCOM, ARM]
+    etfs: [SMH, SOXX]
+  datacenter_power:
+    securities: [VRT, ETN, GEV, PWR, CEG, NEE]
+    etfs: [XLU]
+  robotics:
+    securities: [TER, SYM, FANUY]
+    etfs: [BOTZ, ROBO]
+  biotech_automation:
+    securities: [TMO, DHR, A]
+    etfs: [XBI, IBB]
+  critical_minerals:
+    securities: [FCX, SCCO, CCJ, MP]
+    etfs: [COPX, URA, PICK]
+  crypto_infrastructure:
+    securities: [COIN, MSTR, MARA]
+    etfs: [IBIT]
+
+# Tiny universe for the first Bloomberg-terminal test at college.
+college_test_universe: [NVDA, AMD, AVGO, MU, VRT, ANET, QQQ, SMH, SPY]
+
+# Tradability filters (Stage: security mapping)
+tradability:
+  min_history_days: 126
+  min_price: 2.0
+  min_avg_dollar_volume: 5_000_000
+  min_volume: 1

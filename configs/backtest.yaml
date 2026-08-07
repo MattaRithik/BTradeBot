@@ -1,0 +1,16 @@
+# Walk-forward and backtest realism settings.
+walkforward:
+  lookback_months: 24
+  test_months: 2
+  step_months: 2
+  min_history_days: 126
+
+backtest:
+  commission_per_share: 0.005
+  min_commission_per_order: 1.0
+  slippage_bps: 5.0           # half-spread/impact approximation
+  short_borrow_annual: 0.005  # only if shorting enabled
+  cash_return_annual: 0.04
+  execution_delay_days: 1     # signals trade on next bar, never same-bar
+  rebalance: per_split        # per_split | monthly | weekly
+  max_turnover_per_rebalance: 1.0

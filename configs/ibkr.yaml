@@ -1,0 +1,8 @@
+# IBKR paper-trading connection (PAPER ONLY).
+# Ports are configurable; common defaults verified against IBKR docs:
+#   TWS paper: 7497 | IB Gateway paper: 4002 | TWS live: 7496 (NEVER used here)
+gateway: tws          # tws | ib_gateway
+connect_timeout_seconds: 10
+reconnect_backoff_seconds: [1, 2, 5, 10, 30]
+market_data_type: 1   # 1=live, 2=frozen, 3=delayed, 4=delayed-frozen
+trading_mode: paper   # hard-checked at startup; anything else aborts
