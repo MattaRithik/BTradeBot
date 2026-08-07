@@ -1,8 +1,8 @@
 # Test Status
 
-Last verified: 2026-08-07 (session 1, Stage C)
+Last verified: 2026-08-07 (session 1, Stage D)
 
-Full suite: `pytest` → **97 passed, 0 failed, 0 skipped**
+Full suite: `pytest` → **130 passed, 0 failed, 0 skipped**
 Lint: `ruff check src tests` → clean
 Typecheck: mypy configured but not yet enforced (Stage K)
 
@@ -14,5 +14,8 @@ Targeted:
 - repository (PIT): `pytest tests/test_repository.py`
 - features: `pytest tests/test_features.py`
 - sample data: `pytest tests/test_sample_data.py`
+- mock provider: `pytest tests/test_mock_provider.py`
+- kimi contract: `pytest tests/test_kimi_provider_contract.py`
+- orchestrator: `pytest tests/test_orchestrator.py`
 
-Last known green commit: uncommitted, Stage C
+Last known green commit: see `git log --oneline -1` (Stage D)

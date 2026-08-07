@@ -17,6 +17,7 @@ routing:
   news_event: kimi-default
   fundamental: kimi-default
   supply_chain: kimi-default
+  momentum: kimi-default
   valuation: kimi-default
   bull: kimi-default
   bear: kimi-default

@@ -1,22 +1,25 @@
 # Current Task
 
-task: Stage B — Bloomberg data layer
-objective: Provider interfaces + Bloomberg Desktop (BLPAPI) adapter +
-  CSV/XLSX export adapter + data validation + `bloomberg doctor/sample` CLI.
+task: Stage E — thesis / mapping / validation / ranking
+objective: Evidence engine (news→EvidenceCard via agents), thesis builder,
+  causal chains, security mapping + tradability filters, transparent scoring
+  (config weights), bull/bear/risk/leakage/judge debate, sector competition
+  leaderboard with "choose nothing" allowed.
 files_expected:
-  - src/quant_platform/data/__init__.py
-  - src/quant_platform/data/providers.py
-  - src/quant_platform/data/bloomberg_desktop.py
-  - src/quant_platform/data/bloomberg_export.py
-  - src/quant_platform/data/validation.py
-  - src/quant_platform/cli/bloomberg.py
-  - tests/test_bloomberg_export.py, tests/test_data_validation.py,
-    tests/test_bloomberg_desktop_contract.py
-dependencies: Stage A core (done)
+  - src/quant_platform/research/__init__.py
+  - src/quant_platform/research/evidence.py
+  - src/quant_platform/research/thesis.py
+  - src/quant_platform/research/mapping.py
+  - src/quant_platform/research/scoring.py
+  - src/quant_platform/research/validation.py
+  - src/quant_platform/research/ranking.py
+  - tests/test_research_*.py
+dependencies: Stage D models + agents (done); configs/scoring.yaml weights sum to 1.0
 acceptance:
-  - Export adapter normalizes `NVDA US Equity`→`NVDA` preserving raw id
-  - PX_OPEN/HIGH/LOW/LAST/VOLUME/CUR_MKT_CAP mapped to schemas
-  - Doctor prints PASS / FAIL / NOT ENTITLED per capability, exit codes honest
-  - Contract tests mock blpapi module; no real Bloomberg needed
-  - Corrupt exports fail loudly, never silently pass
-tests: targeted `pytest tests/test_bloomberg*` then full suite
+  - EvidenceCards cite source news ids; nothing fabricated
+  - SectorThesis carries causal chain + invalidation conditions
+  - Mapping applies tradability filters (liquidity/history from repository)
+  - Scoring is Python-only, weights from configs/scoring.yaml
+  - Debate uses Stage D agents; leakage_detected forces REJECTED
+  - Leaderboard may select NOTHING when evidence is weak
+tests: targeted `pytest tests/test_research*` then full suite

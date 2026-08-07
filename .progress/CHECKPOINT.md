@@ -1,21 +1,22 @@
 # Checkpoint
 
-timestamp: 2026-08-07T21:10Z
-current_stage: C — point-in-time repositories + feature engine + sample data
+timestamp: 2026-08-07T22:30Z
+current_stage: E — thesis / mapping / validation / ranking
 current_subtask: starting
-status_estimate: A,B complete; overall ~18%
+status_estimate: A,B,C,D complete; overall ~32%
 
 ## Modules
-- completed: core/*, data/{providers,normalize,bloomberg_export,bloomberg_desktop,validation},
-  CLI doctor + config check + bloomberg doctor/sample
+- completed: core/*, data/*, features/engine, models/*, agents/*,
+  CLI doctor + config check + bloomberg doctor/sample + data sample
 - partial: none
-- not_started: features, models, agents, research, signals, portfolio,
-  snapshots, backtest, analysis, execution, dashboard
+- not_started: research, signals, portfolio, snapshots, backtest, analysis,
+  execution, dashboard
 
 ## External services
 - bloomberg: export adapter + BLPAPI adapter done & contract-tested; live
   connectivity needs college terminal (doctor command ready)
-- kimi: not started (Stage D)
+- kimi: provider done & contract-tested offline; real call needs KIMI_API_KEY
+  (MockModelProvider keeps everything functional without it)
 - ibkr: not started (Stage I)
 - dashboard: not started (Stage J)
 
@@ -23,14 +24,16 @@ status_estimate: A,B complete; overall ~18%
 - none known
 
 ## Last commands
-- last_successful: `pytest` (80 passed), ruff clean, `quantctl bloomberg doctor` honest FAIL/SKIPPED off-terminal
+- last_successful: `pytest` (130 passed), ruff clean
 - last_failed: none outstanding
 
 ## Git
 - branch: main
-- latest_commit: see `git log --oneline -1` (Stage B commit)
+- latest_commit: see `git log --oneline -1` (Stage D commit)
 
 ## Exact next action
-Stage C: src/quant_platform/data/repository.py (gatekeeper-backed repos),
-src/quant_platform/features/engine.py (deterministic features),
-src/quant_platform/data/sample_data.py (SYNTHETIC generator) + tests.
+Stage E per .progress/CURRENT_TASK.md: research/evidence.py (news→EvidenceCard),
+research/thesis.py, research/mapping.py (+tradability), research/scoring.py
+(Python-only, configs/scoring.yaml), research/validation.py (debate via
+Stage D agents; leakage_detected ⇒ REJECTED), research/ranking.py (choose
+nothing allowed) + tests.

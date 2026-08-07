@@ -8,9 +8,9 @@ Last updated: 2026-08-07 (session 1)
 |---|---|---|
 | A | Foundation: schemas/config/logging/audit/gatekeeper/store/CLI | ✅ COMPLETE (47 tests) |
 | B | Bloomberg adapters + normalization + diagnostics | ✅ COMPLETE (80 tests) |
-| C | Point-in-time engine + features + evidence | 🔵 IN PROGRESS |
-| D | Kimi provider + multi-agent orchestrator | ⬜ |
-| E | Thesis/mapping/validation/ranking | ⬜ |
+| C | Point-in-time engine + features + evidence | ✅ COMPLETE (97 tests) |
+| D | Kimi provider + multi-agent orchestrator | ✅ COMPLETE (130 tests) |
+| E | Thesis/mapping/validation/ranking | 🔵 IN PROGRESS |
 | F | Signals + portfolio + risk | ⬜ |
 | G | Snapshots + walk-forward backtesting | ⬜ |
 | H | News/trade analysis + failure analysis | ⬜ |
@@ -27,7 +27,7 @@ Last updated: 2026-08-07 (session 1)
 
 ## Test status
 
-80 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
+130 passed, 0 failed (`pytest`). Lint clean (`ruff check src tests`).
 
 ## Key invariants (do not regress)
 

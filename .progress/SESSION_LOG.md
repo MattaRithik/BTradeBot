@@ -20,3 +20,12 @@
   filter), sample data generator (GBM prices + [SYNTHETIC] news), `quantctl
   data sample` CLI; 97 tests green, ruff clean; uncommitted
 - next: Stage D (Kimi provider + multi-agent orchestrator)
+- Stage D done: models/ (ModelProvider ABC, KimiProvider w/ injectable httpx
+  client + retry/backoff + JSON-mode validation + cache + budget guard +
+  MODEL_CALL audit, MockModelProvider deterministic), agents/ (14 agent specs,
+  ResearchAgent enforcing package as_of_date, async fan-out/fan-in orchestrator
+  w/ semaphore + failure isolation + AGENT_STARTED/FINISHED audit); added
+  momentum routing to configs/models.yaml; 130 tests green, ruff clean
+- note: subagent hit a mid-task quota stop; verified its output by review,
+  wrote the kimi-contract + orchestrator tests in the main session
+- next: Stage E (thesis/mapping/validation/ranking)
