@@ -18,6 +18,10 @@ app = typer.Typer(
 )
 console = Console()
 
+from quant_platform.cli.bloomberg import bloomberg_app  # noqa: E402
+
+app.add_typer(bloomberg_app, name="bloomberg")
+
 
 def _settings() -> EnvSettings:
     load_dotenv_if_present()
