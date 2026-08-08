@@ -19,11 +19,11 @@ cd BTradeBot
 py -3.13 -m venv .venv                    # or: python -m venv .venv
 .\.venv\Scripts\Activate.ps1              # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev,excel]"   # add ,dashboard for the Streamlit UI
+python -m pip install -e ".[dev]"         # everything needed for tests; add ,excel ,dashboard for extras
 
 quantctl doctor                           # environment + safety checks
 quantctl demo                             # end-to-end OFFLINE run (synthetic data, mock model)
-python -m pytest                          # full test suite
+python -m pytest -q                       # full test suite
 ```
 
 ## Quickstart — macOS / Linux
@@ -34,7 +34,7 @@ cd BTradeBot
 make setup                       # python3 -m venv .venv && pip install -e ".[dev,dashboard,excel]"
 .venv/bin/quantctl doctor        # environment + safety checks
 .venv/bin/quantctl demo          # end-to-end OFFLINE run (synthetic data, mock model)
-.venv/bin/python -m pytest       # full test suite
+.venv/bin/python -m pytest -q    # full test suite
 .venv/bin/ruff check src tests   # lint
 ```
 

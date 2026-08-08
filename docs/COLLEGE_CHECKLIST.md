@@ -14,7 +14,7 @@ py -3.13 -m venv .venv                    # or: python -m venv .venv
 # if activation is blocked by policy, run once, then retry the line above:
 #   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev,excel]"
+python -m pip install -e ".[dev]"         # includes pytest, pytest-asyncio, openpyxl, ruff
 ```
 
 ## 2. Verify the base install (no external services needed)
@@ -22,7 +22,7 @@ python -m pip install -e ".[dev,excel]"
 ```powershell
 quantctl doctor                           # expect: all PASS
 quantctl config check                     # expect: all OK, weights sum to 1.0
-python -m pytest                          # expect: 259 passed
+python -m pytest -q                       # expect: 259 passed
 quantctl demo                             # full pipeline on SYNTHETIC data
 ```
 

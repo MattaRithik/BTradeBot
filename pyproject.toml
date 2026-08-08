@@ -25,12 +25,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.30", "plotly>=5.20"]
-bloomberg = []  # blpapi must be installed from Bloomberg's own index; see docs/BLOOMBERG_SETUP.md
+bloomberg = []  # blpapi must be installed from Bloomberg's own index; see docs/COLLEGE_CHECKLIST.md
 ibkr = ["ib-async>=2.0"]
 excel = ["openpyxl>=3.1"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "openpyxl>=3.1",  # test suite covers XLSX export ingestion
     "ruff>=0.5",
     "mypy>=1.8",
 ]
