@@ -1,8 +1,9 @@
 # Resume Prompt (paste into a fresh Kimi session)
 
-The Quant AI research & paper-trading platform at
-`/Users/rithikreddymatta/Desktop/Research/Bloomberg` is FEATURE COMPLETE:
-all stages A–K are implemented, tested, and committed on main.
+The Quant AI research & paper-trading platform in this repository is
+FEATURE COMPLETE: all stages A–K are implemented, tested, and committed on
+main. Work from the repo root (wherever it is cloned — no absolute paths
+are baked in).
 
 First read, in order:
 1. PROJECT_STATE.md
@@ -12,13 +13,13 @@ First read, in order:
 5. DECISIONS.md
 6. docs/ARCHITECTURE.md
 
-Verify state before doing anything:
+Verify state before doing anything (Windows: use the activated venv's
+`python`/`quantctl`; macOS/Linux: prefix with `.venv/bin/`):
 ```bash
-cd /Users/rithikreddymatta/Desktop/Research/Bloomberg
 git status                     # expect clean
-.venv/bin/python -m pytest     # expect all passed (see TEST_STATUS.md)
-.venv/bin/ruff check src tests # expect clean
-.venv/bin/quantctl demo --data-root /tmp/quantdemo  # end-to-end offline demo
+python -m pytest               # expect all passed (see TEST_STATUS.md)
+ruff check src tests           # expect clean
+quantctl demo                  # end-to-end offline demo, no external services
 ```
 
 Remaining work is OPTIONAL polish, not missing stages:

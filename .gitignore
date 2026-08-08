@@ -24,9 +24,10 @@ data/features/*
 data/evidence/*
 data/snapshots/*
 data/backtests/*
+data/analysis/*
 data/paper_trading/*
+data/logs/
 !data/**/.gitkeep
-!data/raw/sample/**
 *.parquet
 *.duckdb
 *.duckdb.wal

@@ -85,3 +85,11 @@
   DataValidationError -> untradable); 259 tests green, ruff clean, demo
   verified end-to-end
 - PLATFORM FEATURE COMPLETE (A..K)
+- deployment-readiness audit (fresh Windows machine): fresh `git clone` ->
+  venv -> pip install -> 259 tests + doctor + config check + demo + paper
+  doctor ALL PASS in the clone (snapshot id identical -> reproducible);
+  fixed: .gitignore missed data/analysis/ + data/logs/ (audit jsonl could
+  have been committed), README now has exact Windows PowerShell setup +
+  blpapi index instructions, COLLEGE_CHECKLIST rewritten as exact ordered
+  PowerShell steps, RESUME_PROMPT de-referenced from local absolute paths;
+  verified no secrets/caches/local paths tracked

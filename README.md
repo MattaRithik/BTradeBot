@@ -11,31 +11,58 @@ defaults; anything else fails startup validation. Live IBKR accounts (non
 `DU*`) are refused by design. Python does ALL math; Kimi models only reason
 over language and never touch the broker.
 
-## Quickstart
+## Quickstart — Windows (PowerShell, e.g. the college terminal machine)
+
+```powershell
+git clone git@github.com:MattaRithik/BTradeBot.git
+cd BTradeBot
+py -3.13 -m venv .venv                    # or: python -m venv .venv
+.\.venv\Scripts\Activate.ps1              # if blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev,excel]"   # add ,dashboard for the Streamlit UI
+
+quantctl doctor                           # environment + safety checks
+quantctl demo                             # end-to-end OFFLINE run (synthetic data, mock model)
+python -m pytest                          # full test suite
+```
+
+## Quickstart — macOS / Linux
 
 ```bash
-make setup                       # python -m venv .venv && pip install -e ".[dev,dashboard,excel]"
+git clone git@github.com:MattaRithik/BTradeBot.git
+cd BTradeBot
+make setup                       # python3 -m venv .venv && pip install -e ".[dev,dashboard,excel]"
 .venv/bin/quantctl doctor        # environment + safety checks
 .venv/bin/quantctl demo          # end-to-end OFFLINE run (synthetic data, mock model)
 .venv/bin/python -m pytest       # full test suite
 .venv/bin/ruff check src tests   # lint
 ```
 
+(`make` is only a convenience wrapper — the raw commands above are identical
+to the Windows ones with `.venv/bin/` instead of `.\.venv\Scripts\`.)
+
 The demo needs nothing external: it generates clearly-marked SYNTHETIC
 Bloomberg-style exports and runs every stage through the MockModelProvider.
 
 ## Real services (all optional, all honest)
 
-- **Bloomberg**: on a terminal, `pip install blpapi --index-url
-  https://blpapi.bloomberg.com/repository/releases/python` then
-  `quantctl bloomberg doctor` (PASS / FAIL / NOT ENTITLED per capability).
+- **Bloomberg**: on the college terminal machine (BLPAPI needs a running
+  Bloomberg Terminal on localhost:8194), install from Bloomberg's own pip
+  index — it is NOT on public PyPI:
+  ```powershell
+  python -m pip install blpapi --index-url https://blpapi.bloomberg.com/repository/releases/python
+  quantctl bloomberg doctor    # honest PASS / FAIL / NOT ENTITLED per capability
+  quantctl bloomberg sample    # pulls the small college test universe
+  ```
   Off-terminal, drop CSV/XLSX exports in `data/raw/bloomberg_exports/` — the
-  export adapter is a first-class path.
-- **Kimi**: set `KIMI_API_KEY` (see `.env.example`); without it everything
-  runs on MockModelProvider.
-- **IBKR paper**: run TWS/Gateway on a paper port (7497/4002), set
-  `IBKR_ACCOUNT=DU...`, then `quantctl paper doctor` / `quantctl paper dry-run`.
-- **Dashboard**: `pip install -e ".[dashboard]"`, then `quantctl dashboard`.
+  export adapter is a first-class path, not a degraded one.
+- **Kimi**: copy `.env.example` to `.env` and set `KIMI_API_KEY`; without it
+  everything runs on MockModelProvider.
+- **IBKR paper**: run TWS/IB Gateway on a paper port (7497/4002), set
+  `IBKR_ACCOUNT=DU...` in `.env`, then `quantctl paper doctor` /
+  `quantctl paper dry-run`. Live (non-`DU*`) accounts are refused.
+- **Dashboard**: `python -m pip install -e ".[dashboard]"`, then
+  `quantctl dashboard`.
 
 ## Layout
 
