@@ -22,6 +22,7 @@ from quant_platform.models import ModelProviderError
 from quant_platform.research_runtime import (
     ResearchRuntimeError,
     kimi_doctor_ping,
+    newscatcher_doctor_ping,
     run_research,
 )
 
@@ -89,7 +90,7 @@ def doctor() -> None:
         source = "bloomberg_desktop" if desktop_diag.available else "bloomberg_export"
         _row(table, "market data source", "PASS", f"will use {source}")
 
-    # 4. exported news (the only evidence source) — warning only here; `run` fails clearly
+    # 4. news sources: NewsCatcher API (primary) + exported Bloomberg news (fallback)
     news_dir = inbox / "news"
     news_files = (
         sorted(p for p in news_dir.iterdir() if p.suffix.lower() in {".csv", ".xlsx", ".xls"})
@@ -99,12 +100,38 @@ def doctor() -> None:
     if news_files:
         _row(table, "exported news", "PASS", f"{len(news_files)} file(s) in {news_dir}")
     else:
+        _row(table, "exported news", "WARN", f"no news CSV/XLSX in {news_dir}")
+
+    newscatcher_ok = False
+    if not settings.newscatcher_configured:
         _row(
             table,
-            "exported news",
+            "newscatcher api",
             "WARN",
-            f"no news CSV/XLSX in {news_dir} — `research run` needs them (news API NOT_ENTITLED)",
+            "NEWSCATCHER_API_KEY not set — Bloomberg export news is the fallback",
         )
+    else:
+        status, detail = asyncio.run(newscatcher_doctor_ping(settings))
+        _row(table, "newscatcher api", status, detail)
+        if status == "FAIL":
+            failures += 1  # the user configured it; it must work
+        else:
+            newscatcher_ok = True
+
+    if newscatcher_ok and news_files:
+        _row(table, "news source", "PASS", "NewsCatcher API (primary) + Bloomberg export news")
+    elif newscatcher_ok:
+        _row(table, "news source", "PASS", "NewsCatcher API (primary)")
+    elif news_files:
+        _row(table, "news source", "PASS", f"Bloomberg export news from {news_dir} (fallback)")
+    else:
+        _row(
+            table,
+            "news source",
+            "FAIL",
+            "no news source — set NEWSCATCHER_API_KEY or export news CSV/XLSX into the inbox",
+        )
+        failures += 1
 
     # 5. Kimi real ping (one minimal call)
     if not settings.kimi_configured:

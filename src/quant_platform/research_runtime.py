@@ -14,7 +14,17 @@ components so the same invariants hold:
 - the LLM never touches broker/execution: this module refuses to run unless
   TRADING_MODE=paper and DRY_RUN=true.
 
-Failures are honest: no market data, no exported news, or an unreachable
+News has two sources, combined per run: the NewsCatcher API is the primary
+automated feed (NEWS ONLY — it never provides market data), and manually
+exported Bloomberg terminal news remains a first-class additional source.
+Both are normalized to NewsRecord (provenance via NewsRecord.source),
+deduplicated across sources, and filtered through the TimeGatekeeper AFTER
+retrieval, so even a cached NewsCatcher response cannot leak future
+articles into a run. If NewsCatcher fails, configs/news.yaml
+``on_primary_failure`` decides: "degrade" continues loudly on export news
+only; "fail" aborts. Evidence is NEVER fabricated.
+
+Failures are honest: no market data, no news, or an unreachable
 provider raises ResearchRuntimeError — output is never faked.
 """
 
@@ -31,7 +41,7 @@ from quant_platform.analysis import build_failure_record
 from quant_platform.backtest import BacktestConfig, run_backtest
 from quant_platform.core.audit import AuditLogger
 from quant_platform.core.config import EnvSettings, load_yaml_config
-from quant_platform.core.enums import SourceType
+from quant_platform.core.enums import AuditEventType, SourceType
 from quant_platform.core.gatekeeper import FutureDataGate, ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import (
     EvidenceCard,
@@ -44,6 +54,7 @@ from quant_platform.core.store import ArtifactStore
 from quant_platform.core.timeutil import start_of_day_utc, utc_now
 from quant_platform.data.bloomberg_desktop import BloombergDesktopAdapter
 from quant_platform.data.bloomberg_export import BloombergExportAdapter
+from quant_platform.data.newscatcher import NewsCatcherError, NewsCatcherProvider
 from quant_platform.data.repository import PITRepository
 from quant_platform.data.validation import DataValidationError
 from quant_platform.features.engine import compute_features
@@ -61,6 +72,12 @@ from quant_platform.research import (
     map_sector_securities,
     rank_sectors,
     validate_thesis,
+)
+from quant_platform.research.news_intel import (
+    build_query_plan,
+    dedupe_news_records,
+    gather_news,
+    load_news_config,
 )
 from quant_platform.signals import build_signals
 from quant_platform.snapshots import freeze_snapshot
@@ -198,6 +215,19 @@ async def kimi_doctor_ping(settings: EnvSettings, *, client: Any = None) -> tupl
     return "PASS", f"model={response.model} tokens={tokens}"
 
 
+async def newscatcher_doctor_ping(settings: EnvSettings, *, client: Any = None) -> tuple[str, str]:
+    """ONE minimal real NewsCatcher call for the doctor. Returns (status, detail)."""
+    try:
+        provider = NewsCatcherProvider(settings, client=client)
+        try:
+            status, detail = await provider.ping()
+        finally:
+            await provider.aclose()
+    except Exception as exc:  # honest diagnostics, never a crash
+        return "FAIL", str(exc)
+    return status, detail
+
+
 async def run_research(
     data_root: Path | str,
     settings: EnvSettings,
@@ -208,6 +238,8 @@ async def run_research(
     market_adapter: Any = None,
     provider: ModelProvider | None = None,
     news_dir: Path | None = None,
+    news_provider: Any = None,
+    news_config: dict[str, Any] | None = None,
     audit: AuditLogger | None = None,
     with_backtest: bool = True,
 ) -> dict[str, Any]:
@@ -282,19 +314,67 @@ async def run_research(
     store.save_table("features", f"features_{run_id}", features)
 
     news_dir = Path(news_dir) if news_dir is not None else inbox / "news"
-    news_stats: dict[str, int] = {}
+    news_config = news_config if news_config is not None else load_news_config()
     gate = TimeGatekeeper(context, audit=audit)
-    news = gate.filter_by_usable_from(
-        load_exported_news(news_dir, ticker_to_label, stats=news_stats), what="news_record"
-    )
+
+    # 3a. Bloomberg export news — first-class additional source (unchanged)
+    news_stats: dict[str, int] = {}
+    export_news = load_exported_news(news_dir, ticker_to_label, stats=news_stats)
     if news_stats.get("rows_skipped"):
         warnings.append(f"{news_stats['rows_skipped']} malformed news row(s)/file(s) skipped in {news_dir}")
+
+    # 3b. NewsCatcher — primary automated feed (NEWS ONLY; never market data)
+    nc_stats: dict[str, int] = {}
+    nc_records: list[NewsRecord] = []
+    newscatcher_active = news_provider is not None or settings.newscatcher_configured
+    if newscatcher_active:
+        catcher = news_provider
+        if catcher is None:
+            cache_dir = Path((news_config.get("cache") or {}).get("dir", "data/raw/news_cache"))
+            catcher = NewsCatcherProvider(settings, audit=audit, cache_dir=cache_dir)
+        plan = build_query_plan(tickers, ticker_to_label, as_of, news_config)
+        try:
+            nc_records = await gather_news(
+                catcher,
+                plan,
+                as_of,
+                gate,
+                config=news_config,
+                ticker_to_label=ticker_to_label,
+                stats=nc_stats,
+            )
+        except NewsCatcherError as exc:
+            if audit is not None:
+                audit.record(
+                    AuditEventType.DATA_QUALITY_ISSUE,
+                    run_id=run_id,
+                    as_of_date=as_of.isoformat(),
+                    what="newscatcher_gather",
+                    error=str(exc)[:300],
+                )
+            warnings.append(f"NewsCatcher FAILED: {exc} — news evidence incomplete")
+            if str(news_config.get("on_primary_failure", "degrade")).lower() == "fail":
+                raise ResearchRuntimeError(f"NewsCatcher failed and on_primary_failure=fail: {exc}") from exc
+            # "degrade": continue loudly with Bloomberg export news only
+        finally:
+            if news_provider is None:  # we own the constructed provider
+                await catcher.aclose()
+    else:
+        warnings.append("NewsCatcher not configured (NEWSCATCHER_API_KEY unset) — Bloomberg export news only")
+
+    # 3c. combine + cross-source dedup, then ONE gatekeeper pass over everything
+    combined_news = dedupe_news_records([*nc_records, *export_news])
+    news = gate.filter_by_usable_from(combined_news, what="news_record")
     if not news:
         raise ResearchRuntimeError(
-            f"no Bloomberg news export found at {news_dir} — export news CSV/XLSX from "
-            "the terminal into that folder; machine-readable news API is NOT_ENTITLED "
-            "on this machine"
+            f"no Bloomberg news export found at {news_dir} and no NewsCatcher news gathered — "
+            "set NEWSCATCHER_API_KEY (news API) and/or export news CSV/XLSX from the terminal "
+            "into that folder; machine-readable Bloomberg news API is NOT_ENTITLED on this machine"
         )
+    news_sources = {
+        "newscatcher": sum(1 for n in news if n.source == SourceType.NEWSCATCHER),
+        "bloomberg_export": sum(1 for n in news if n.source == SourceType.BLOOMBERG_EXPORT),
+    }
 
     # 4. real provider (construction raises ModelProviderError without a key)
     if provider is None:
@@ -307,7 +387,7 @@ async def run_research(
             cards.extend(await engine.extract(news[i : i + _EVIDENCE_BATCH], as_of))
         if not cards:
             raise ResearchRuntimeError(
-                "Kimi extracted no usable evidence from the exported news — refusing "
+                "Kimi extracted no usable evidence from the gathered news — refusing "
                 "to freeze an empty snapshot"
             )
 
@@ -407,6 +487,7 @@ async def run_research(
                 "provider": str(provider_name),
                 "model": str(getattr(provider, "model", provider_name)),
                 "data_source": source_name,
+                "news_providers": ",".join(s for s in ("newscatcher", "bloomberg_export") if news_sources[s]),
             },
             store=store,
             audit=audit,
@@ -452,6 +533,8 @@ async def run_research(
             "news_dir": str(news_dir),
             "bars_visible": len(bars),
             "news_visible": len(news),
+            "news_sources": news_sources,
+            **({"newscatcher": dict(nc_stats)} if newscatcher_active else {}),
             "evidence_cards": len(cards),
             "theses": len(submissions),
             "selected_sectors": sorted(selected),

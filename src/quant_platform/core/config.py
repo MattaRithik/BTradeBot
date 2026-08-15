@@ -27,6 +27,10 @@ class EnvSettings(PlatformModel):
     kimi_base_url: str = "https://api.moonshot.ai/v1"
     kimi_model: str = "kimi-k2.6"
 
+    # NewsCatcher news API (news/intelligence ONLY — never market data)
+    newscatcher_api_key: str = Field(default="", exclude=True)  # never serialized
+    newscatcher_base_url: str = "https://v3-api.newscatcherapi.com"
+
     # Bloomberg Desktop API
     bloomberg_host: str = "localhost"
     bloomberg_port: int = 8194
@@ -69,6 +73,10 @@ class EnvSettings(PlatformModel):
     def kimi_configured(self) -> bool:
         return bool(self.kimi_api_key)
 
+    @property
+    def newscatcher_configured(self) -> bool:
+        return bool(self.newscatcher_api_key)
+
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> EnvSettings:
         env = os.environ if environ is None else environ
@@ -83,6 +91,10 @@ class EnvSettings(PlatformModel):
             kimi_api_key=_get("KIMI_API_KEY"),
             kimi_base_url=_get("KIMI_BASE_URL", default="https://api.moonshot.ai/v1"),
             kimi_model=_get("KIMI_MODEL", default="kimi-k2.6"),
+            newscatcher_api_key=_get("NEWSCATCHER_API_KEY"),
+            newscatcher_base_url=_get(
+                "NEWSCATCHER_BASE_URL", default="https://v3-api.newscatcherapi.com"
+            ),
             bloomberg_host=_get("BLOOMBERG_HOST", default="localhost"),
             bloomberg_port=int(_get("BLOOMBERG_PORT", default="8194")),
             ibkr_host=_get("IBKR_HOST", default="127.0.0.1"),

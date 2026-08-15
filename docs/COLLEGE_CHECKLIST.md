@@ -22,7 +22,7 @@ python -m pip install -e ".[dev]"         # includes pytest, pytest-asyncio, ope
 ```powershell
 quantctl doctor                           # expect: all PASS
 quantctl config check                     # expect: all OK, weights sum to 1.0
-python -m pytest -q                       # expect: 270 passed
+python -m pytest -q                       # expect: 336 passed
 quantctl demo                             # full pipeline on SYNTHETIC data
 ```
 
@@ -50,28 +50,46 @@ Copy-Item .env.example .env
 notepad .env                              # set KIMI_API_KEY=...
 ```
 
-## 5. First REAL research run (Bloomberg + Kimi)
+## 5. NewsCatcher (primary automated news feed — NEWS ONLY)
 
-Needs sections 3 and 4 done. Export news from the terminal as CSV/XLSX
-(columns like `security,date,headline,body`) into
-`data\raw\bloomberg_exports\news\` — the `news\` subdirectory matters.
-Price bars come from BLPAPI directly, or from CSV/XLSX exports dropped in
+NewsCatcher provides news/intelligence ONLY — never market data (Bloomberg
+owns that). Get an API key from newscatcherapi.com, put it in the LOCAL
+`.env` (never committed):
+
+```powershell
+notepad .env                              # set NEWSCATCHER_API_KEY=...
+quantctl news doctor                      # key present + auth ping + cache dir writable
+quantctl news search --query "NVIDIA" --limit 5   # one real search, proves the pipeline
+```
+
+Windows, company aliases, sector/macro queries, cache location, per-run
+API-call/article caps, and the outage policy are all in `configs\news.yaml`.
+
+## 6. First REAL research run (Bloomberg + NewsCatcher + Kimi)
+
+Needs sections 3, 4 and 5 done. News comes from TWO sources, combined and
+deduplicated automatically: the NewsCatcher API (primary) and manually
+exported terminal news (CSV/XLSX with columns like `security,date,headline,body`
+in `data\raw\bloomberg_exports\news\` — the `news\` subdirectory matters).
+Either source alone is sufficient; both together is best. Price bars come
+from BLPAPI directly, or from CSV/XLSX exports dropped in
 `data\raw\bloomberg_exports\` itself.
 
 ```powershell
-quantctl research doctor                  # expect: all PASS (news-missing is only a WARN)
+quantctl research doctor                  # expect: all PASS (market data + news source rows)
 quantctl research run --as-of 2025-06-30  # explicit past cutoff; add --export-only off-terminal
 ```
 
-PASS looks like: `research run complete` with bars/news/evidence counts,
-selected sectors, a snapshot id, and backtest metrics (or an honest
+PASS looks like: `research run complete` with bars/news/evidence counts
+(`news_sources` shows the newscatcher/bloomberg_export split), selected
+sectors, a snapshot id, and backtest metrics (or an honest
 "backtest skipped" warning if no post-as-of data exists yet). Artifacts
 land in `data\snapshots\` (frozen prediction), `data\backtests\`,
 `data\analysis\` (failure records), features in `data\features\`, and the
 audit trail in `logs\`. A clear red error + exit code 1 is the honest
 outcome when Bloomberg, news, or Kimi is missing — never fake output.
 
-## 6. IBKR paper (optional)
+## 7. IBKR paper (optional)
 
 1. Start TWS or IB Gateway and log into the **PAPER** account (`DU...`).
 2. Enable the API: paper port 7497 (TWS) or 4002 (Gateway).
@@ -84,12 +102,23 @@ quantctl paper doctor                     # trading mode + DU prefix + kill swit
 quantctl paper dry-run                    # computes a sample order, submits nothing
 ```
 
-## 7. Dashboard (optional)
+## 8. Dashboard (optional)
 
 ```powershell
 python -m pip install -e ".[dashboard]"
 quantctl dashboard
 ```
+
+## Two-machine workflow
+
+- **Personal laptop**: develop, test (`python -m pytest -q`), commit, push.
+  No terminal needed — the demo and the full suite run offline.
+- **College Bloomberg PC**: `git pull`, then keep secrets in the LOCAL
+  `.env` only (`KIMI_API_KEY` + `NEWSCATCHER_API_KEY` — never committed),
+  log into the terminal, install deps (section 1 + `blpapi` from
+  Bloomberg's index), then `quantctl news doctor`, `quantctl bloomberg
+  doctor`, `quantctl research doctor`, and finally `quantctl research run`.
+  Raw exports and `.env` are git-ignored; nothing proprietary travels.
 
 ## Rules that protect you
 

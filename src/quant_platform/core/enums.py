@@ -25,6 +25,7 @@ class SourceType(StrEnum):
     FRED = "fred"
     PUBLIC_RELEASE = "public_release"
     LICENSED_NEWS = "licensed_news"
+    NEWSCATCHER = "newscatcher"
     SYNTHETIC = "synthetic"  # demo/sample data — never presented as real
     MANUAL = "manual"
 

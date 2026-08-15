@@ -26,6 +26,7 @@ from quant_platform.core.schemas.market import (
     MarketBar,
     MarketSnapshot,
 )
+from quant_platform.core.schemas.news import NewsArticle
 from quant_platform.core.schemas.ops import FailureRecord, ModelUsageRecord
 from quant_platform.core.schemas.portfolio import PortfolioPosition, PortfolioTarget
 from quant_platform.core.schemas.research import (
@@ -58,6 +59,7 @@ __all__ = [
     "MarketBar",
     "MarketSnapshot",
     "ModelUsageRecord",
+    "NewsArticle",
     "NewsRecord",
     "OrderIntent",
     "PaperAccountSnapshot",

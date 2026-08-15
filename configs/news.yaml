@@ -1,0 +1,100 @@
+# News intelligence layer — ALL news behavior is configuration-driven here.
+# NewsCatcher provides NEWS ONLY: never prices/returns/fundamentals/bars
+# (Bloomberg owns market data). The LLM is never involved in building queries.
+provider:
+  timeout_seconds: 30
+  max_retries: 3               # total attempts per call
+  backoff_base_seconds: 1.0
+  page_size: 50
+  max_pages_per_query: 3
+  max_api_calls_per_run: 100   # hard guard — the run refuses beyond this
+  max_articles_per_run: 300
+windows:
+  company_days: 30
+  sector_days: 30
+  macro_days: 14
+  chunk_days: 31               # historical retrieval chunked into <=31-day windows
+cache:
+  enabled: true
+  dir: "data/raw/news_cache"
+on_primary_failure: "degrade"  # degrade to Bloomberg export news (loud warning) | fail
+
+# Small whitelist of reputable domains for a deterministic ranking bonus.
+reputable_domains:
+  - reuters.com
+  - bloomberg.com
+  - ft.com
+  - wsj.com
+  - apnews.com
+  - cnbc.com
+
+# Reusable ticker -> alias/entity mapping (NOT exhaustive; extend freely).
+company_aliases:
+  NVDA: ["NVIDIA", "NVIDIA Corporation"]
+  AMD: ["AMD", "Advanced Micro Devices"]
+  MU: ["Micron", "Micron Technology"]
+  AVGO: ["Broadcom", "Broadcom Inc"]
+  ANET: ["Arista", "Arista Networks"]
+  VRT: ["Vertiv", "Vertiv Holdings"]
+
+# Keyed by sector LABEL from configs/sectors.yaml. Multiple strings per sector
+# are OR-combined into ONE query per sector by build_query_plan.
+sector_queries:
+  "AI Infrastructure":
+    - "artificial intelligence infrastructure OR GPUs OR accelerators OR data centers OR hyperscaler capex OR AI compute demand"
+  "Memory & Storage":
+    - "DRAM OR NAND OR HBM OR memory pricing OR storage demand OR semiconductor supply"
+  "CPU / Inference":
+    - "CPUs OR inference chips OR server CPUs OR AI inference"
+  "Data Center Power / Cooling / Grid":
+    - "electricity demand OR power infrastructure OR grid capacity OR cooling OR transformers OR data-center construction"
+  "Robotics / Physical AI":
+    - "robotics OR automation OR humanoid robots OR industrial automation"
+
+# World/macro news with causal sector mapping. Empty sectors = macro-wide.
+macro_themes:
+  - id: monetary_policy
+    query: "Federal Reserve interest rates inflation"
+    sectors: []
+  - id: export_controls
+    query: "semiconductor export controls China"
+    sectors: ["AI Infrastructure", "Memory & Storage", "CPU / Inference"]
+  - id: recession_risk
+    query: "recession economic slowdown GDP"
+    sectors: []
+  - id: tariffs_trade
+    query: "tariffs trade war imports"
+    sectors: ["AI Infrastructure", "Memory & Storage", "CPU / Inference"]
+  - id: sanctions
+    query: "sanctions export restrictions Russia"
+    sectors: []
+  - id: china_us_relations
+    query: "China US relations technology trade"
+    sectors: ["AI Infrastructure", "Memory & Storage", "CPU / Inference"]
+  - id: taiwan_strait
+    query: "Taiwan strait tensions TSMC chip supply"
+    sectors: ["AI Infrastructure", "Memory & Storage", "CPU / Inference"]
+  - id: geopolitical_escalation
+    query: "war geopolitical escalation Ukraine Middle East"
+    sectors: []
+  - id: energy_prices
+    query: "oil prices energy markets OPEC"
+    sectors: ["Data Center Power / Cooling / Grid"]
+  - id: supply_chain_disruption
+    query: "shipping disruption commodity supply chain"
+    sectors: []
+  - id: ai_regulation
+    query: "government AI regulation artificial intelligence policy"
+    sectors: ["AI Infrastructure", "Robotics / Physical AI"]
+  - id: antitrust
+    query: "antitrust big tech regulation lawsuit"
+    sectors: []
+  - id: fiscal_policy
+    query: "fiscal policy government spending stimulus"
+    sectors: []
+  - id: elections_policy_change
+    query: "election administration policy change"
+    sectors: []
+  - id: natural_disasters_supply
+    query: "earthquake typhoon flood factory supply chain"
+    sectors: ["AI Infrastructure", "Memory & Storage"]
