@@ -3,7 +3,9 @@
 from quant_platform.core.schemas.backtest import (
     BacktestMetrics,
     BacktestResult,
+    HorizonPerformance,
     PredictionSnapshot,
+    SnapshotEvaluation,
     TradeContribution,
     WalkForwardSplit,
 )
@@ -56,6 +58,7 @@ __all__ = [
     "EvidencePackage",
     "FailureRecord",
     "FundamentalRecord",
+    "HorizonPerformance",
     "MarketBar",
     "MarketSnapshot",
     "ModelUsageRecord",
@@ -77,6 +80,7 @@ __all__ = [
     "SectorThesis",
     "Signal",
     "SignalPackage",
+    "SnapshotEvaluation",
     "TradabilityResult",
     "TradeContribution",
     "ValidationResult",

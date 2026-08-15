@@ -111,6 +111,22 @@ class ResearchRuntimeError(RuntimeError):
     """A real research run cannot proceed honestly. Never fake output."""
 
 
+def build_market_source(settings: EnvSettings, data_root: Path | str) -> tuple[Any, str]:
+    """The production market-data source: cache-first BarStore backed by the
+    Bloomberg Desktop API when blpapi is importable, else the terminal export
+    inbox. Shared by the research runtime and the evaluation/backtest CLIs."""
+    inbox = Path(load_yaml_config("bloomberg")["export"]["inbox"])
+    desktop = BloombergDesktopAdapter.from_config(settings)
+    if desktop.package_available:
+        inner: Any = _DesktopSecuritiesFacade(desktop)
+        source_name = "bloomberg_desktop"
+    else:
+        inner = BloombergExportAdapter(inbox)
+        source_name = "bloomberg_export"
+    bar_store = BarStore(Path(data_root) / "cache" / "bloomberg")
+    return CachingMarketProvider(bar_store, inner=inner), source_name
+
+
 def _pick_column(lower: dict[str, str], names: tuple[str, ...]) -> str | None:
     return next((lower[n] for n in names if n in lower), None)
 
@@ -274,15 +290,7 @@ async def run_research(
     # API when blpapi is importable, the terminal export inbox otherwise.
     # The store never decides visibility — PITRepository/TimeGatekeeper do.
     if market_adapter is None:
-        desktop = BloombergDesktopAdapter.from_config(settings)
-        if desktop.package_available:
-            inner: Any = _DesktopSecuritiesFacade(desktop)
-            source_name = "bloomberg_desktop"
-        else:
-            inner = BloombergExportAdapter(inbox)
-            source_name = "bloomberg_export"
-        bar_store = BarStore(data_root / "cache" / "bloomberg")
-        source: Any = CachingMarketProvider(bar_store, inner=inner)
+        source, source_name = build_market_source(settings, data_root)
     else:
         source = market_adapter
         source_name = getattr(market_adapter, "name", type(market_adapter).__name__)

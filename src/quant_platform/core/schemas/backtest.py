@@ -88,3 +88,34 @@ class BacktestResult(PlatformModel):
     benchmarks: dict[str, float] = Field(default_factory=dict)  # name -> cum return
     daily_returns_path: str = ""  # parquet artifact pointer
     warnings: list[str] = Field(default_factory=list)
+
+
+class HorizonPerformance(PlatformModel):
+    """Frozen-portfolio vs benchmark returns over one standard horizon."""
+
+    horizon: str  # 1M | 2M | 3M | 6M | 1Y | LATEST
+    end_date: str  # last market date actually used (never a blind calendar date)
+    portfolio_return: float
+    benchmark_returns: dict[str, float] = Field(default_factory=dict)
+
+
+class SnapshotEvaluation(PlatformModel):
+    """Result of evaluating ONE frozen snapshot forward — never reruns research."""
+
+    evaluation_id: str
+    snapshot_id: str
+    run_id: str
+    as_of_date: date
+    visible_cutoff: str
+    cutoff_timezone: str = ""
+    entry_date: str  # next eligible session actually traded
+    execution_convention: str = "next_session_close"
+    holding_convention: str = "buy_and_hold_frozen"
+    horizons: list[HorizonPerformance] = Field(default_factory=list)
+    sharpe: float | None = None
+    sortino: float | None = None
+    max_drawdown: float | None = None
+    cost_drag: float = 0.0  # entry costs as a fraction of notional
+    contributors: dict[str, float] = Field(default_factory=dict)  # per-ticker, full window
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""

@@ -24,6 +24,7 @@ DATA_SUBDIRS = (
     "backtests",
     "analysis",
     "paper_trading",
+    "evaluations",
 )
 
 
