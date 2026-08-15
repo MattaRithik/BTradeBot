@@ -87,7 +87,10 @@ class EvidencePackage(PlatformModel):
     as_of_date: date
     evidence: list[EvidenceCard] = Field(default_factory=list)
     news: list = Field(default_factory=list)  # list[NewsRecord]
-    market_features_ref: str = ""  # pointer to feature artifact
+    market_features_ref: str = ""  # pointer to feature artifact (provenance)
+    # bounded, point-in-time feature VALUES the agent can actually reason over
+    market_features: dict[str, dict[str, float]] = Field(default_factory=dict)
+    context_block: str = ""  # sector/macro specialization context, rendered first
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -105,7 +108,14 @@ class ValidationResult(PlatformModel):
 
 
 class ScoreBreakdown(PlatformModel):
-    """Transparent, Python-computed component scores (all normalized 0..1)."""
+    """Transparent, Python-computed component scores (all normalized 0..1).
+
+    A component that could not be MEASURED (e.g. no PIT-safe fundamentals at
+    a historical date) is 0.0 here and listed in ``missing_components`` — it
+    is never silently treated as a measured neutral value. ``composite``
+    renormalizes over measured components and applies the configured
+    completeness penalty; ``data_completeness`` is the measured fraction.
+    """
 
     trend_strength: float = Field(ge=0, le=1, default=0)
     evidence_quality: float = Field(ge=0, le=1, default=0)
@@ -118,6 +128,8 @@ class ScoreBreakdown(PlatformModel):
     macro_alignment: float = Field(ge=0, le=1, default=0)
     validation_strength: float = Field(ge=0, le=1, default=0)
     composite: float = Field(ge=0, le=1, default=0)
+    missing_components: list[str] = Field(default_factory=list)
+    data_completeness: float = Field(ge=0, le=1, default=1.0)
 
 
 class SectorSubmission(PlatformModel):

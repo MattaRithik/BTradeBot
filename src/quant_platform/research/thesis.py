@@ -103,6 +103,21 @@ def build_thesis(
 
     candidate_securities = sorted({s for c in evidence for s in c.securities})
 
+    # Beneficiary industries: agent-suggested (details, comma-separated) when
+    # present, otherwise the OTHER sectors touched by this sector's evidence
+    # (cross-sector propagation is evidence-derived, never invented).
+    beneficiary_industries: list[str] = []
+    if argument is not None and argument.details.get("beneficiary_industries"):
+        beneficiary_industries = [
+            b.strip()
+            for b in argument.details["beneficiary_industries"].split(",")
+            if b.strip()
+        ]
+    if not beneficiary_industries:
+        beneficiary_industries = sorted(
+            {s for c in evidence for s in c.sectors if s != sector}
+        )
+
     return SectorThesis(
         thesis_id=stable_id("thesis", sector, as_of_date.isoformat(), summary),
         sector=sector,
@@ -112,7 +127,7 @@ def build_thesis(
         causal_chain=edges,
         causal_nodes=nodes,
         bottlenecks=[c.claim for c in bottleneck_cards],
-        beneficiary_industries=[],
+        beneficiary_industries=beneficiary_industries,
         risks=risks,
         invalidation_conditions=[c.claim for c in risk_cards if c.direction == Direction.NEGATIVE],
         candidate_securities=candidate_securities,

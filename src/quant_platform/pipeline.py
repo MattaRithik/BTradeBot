@@ -54,6 +54,22 @@ from quant_platform.research import (
     rank_sectors,
     validate_thesis,
 )
+from quant_platform.research.components import (
+    company_factors,
+    crowding_risk,
+    evidence_quality,
+    fundamental_confirmation,
+    liquidity,
+    macro_alignment,
+    market_confirmation,
+    package_features,
+    supply_chain_confidence,
+    validation_strength,
+    valuation_risk,
+)
+from quant_platform.research.components import (
+    trend_strength as component_trend_strength,
+)
 from quant_platform.signals import build_signals
 from quant_platform.snapshots import freeze_snapshot
 
@@ -141,20 +157,24 @@ async def run_demo(
 
     # 4. evidence extraction (mock LLM does the reading; Python does provenance)
     visible = news[-8:]
+    demo_categories = [
+        "demand_signal", "supply_bottleneck", "macro_signal", "revenue_confirmation",
+        "demand_signal", "market_confirmation", "product_launch", "capex_confirmation",
+    ]
     scripted = {
         "evidence_extraction": {
             "cards": [
                 {
                     "news_id": n.news_id,
                     "claim": n.headline.replace("[SYNTHETIC] ", "")[:120],
-                    "category": "demand_signal",
+                    "category": demo_categories[i % len(demo_categories)],
                     "direction": "positive",
                     "confidence": 0.85,
                     "relevance": 0.8,
                     "securities": n.securities,
                     "sectors": n.sectors,
                 }
-                for n in visible
+                for i, n in enumerate(visible)
             ]
         },
         "sector": {
@@ -169,41 +189,42 @@ async def run_demo(
     provider = MockModelProvider(scripted=scripted)
     cards = await EvidenceEngine(provider).extract(visible, as_of)
 
-    # 5. theses + validation debate + scoring per sector
+    # 5. theses + validation debate + scoring per sector — the SAME measured
+    # component calculators as the real runtime (mock agents -> honest None
+    # where nothing was measured, never placeholder constants)
     orchestrator = AgentOrchestrator(provider, audit=audit)
     scoring_cfg = load_scoring_config()
     submissions: list[SectorSubmission] = []
     for sector, sector_cards in sorted(group_evidence_by_sector(cards).items()):
+        sector_features = features[
+            features["ticker"].isin(sorted({s for c in sector_cards for s in c.securities}))
+        ]
         package = EvidencePackage(
             run_id=run_id, as_of_date=as_of, evidence=sector_cards, news=visible,
             market_features_ref=f"features_{run_id}",
+            market_features=package_features(sector_features),
         )
-        argued = await orchestrator.run(package, agent_names=["sector"])
-        thesis = build_thesis(sector, sector_cards, argued.arguments.get("sector"), as_of)
+        argued = await orchestrator.run(
+            package,
+            agent_names=["sector", "supply_chain", "momentum", "valuation", "fundamental"],
+        )
+        args = argued.arguments
+        thesis = build_thesis(sector, sector_cards, args.get("sector"), as_of)
         validation = await validate_thesis(thesis, package, provider, audit=audit)
 
-        sector_features = features[features["ticker"].isin(thesis.candidate_securities)]
         components = {
-            "trend_strength": thesis.confidence,
-            "evidence_quality": min(
-                1.0, sum(c.confidence * c.relevance for c in sector_cards) / len(sector_cards)
+            "trend_strength": component_trend_strength(thesis),
+            "evidence_quality": evidence_quality(sector_cards),
+            "supply_chain_confidence": supply_chain_confidence(
+                sector_cards, args.get("supply_chain")
             ),
-            "supply_chain_confidence": 0.5 if any(
-                c.category.value == "supply_bottleneck" for c in sector_cards
-            ) else 0.3,
-            "market_confirmation": float(sector_features["rank_ret_63d"].mean())
-            if not sector_features.empty
-            and pd.notna(sector_features["rank_ret_63d"].mean())
-            else 0.0,
-            "fundamental_confirmation": 0.5,
-            "valuation_risk": 0.3,
-            "crowding_risk": 0.3,
-            "liquidity": float(sector_features["rank_dollar_volume"].mean())
-            if not sector_features.empty
-            and pd.notna(sector_features["rank_dollar_volume"].mean())
-            else 0.0,
-            "macro_alignment": 0.6,
-            "validation_strength": validation.score,
+            "market_confirmation": market_confirmation(sector_features),
+            "fundamental_confirmation": fundamental_confirmation([], args.get("fundamental")),
+            "valuation_risk": valuation_risk(None, args.get("valuation")),
+            "crowding_risk": crowding_risk(sector_features),
+            "liquidity": liquidity(sector_features),
+            "macro_alignment": macro_alignment(None, sector_cards),
+            "validation_strength": validation_strength(validation.score),
         }
         scores = compute_score(components, scoring_cfg)
         submissions.append(
@@ -240,8 +261,16 @@ async def run_demo(
             except DataValidationError:
                 ticker_bars = []  # no data -> cannot prove tradability
             tradability[ticker] = check_tradability(ticker, ticker_bars, as_of)
+    factors: dict[str, float] = {}
+    for sub in submissions:
+        label = sub.thesis.sector
+        sector_cards = [c for c in cards if label in c.sectors]
+        factors.update(
+            company_factors([m.ticker for m in mappings.get(label, [])], sector_cards, features)
+        )
     signal_package = build_signals(
-        submissions, ranking, mappings, tradability, etf_map, audit=audit
+        submissions, ranking, mappings, tradability, etf_map,
+        company_factors=factors, audit=audit,
     )
     target = build_strategy("ensemble", signal_package.actionable, features, run_id, as_of)
     target = apply_risk_constraints(target, features=features)

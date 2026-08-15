@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 
 import pytest
 from tests.conftest import AS_OF, make_evidence, make_news
 
 from quant_platform.agents import AGENTS, AgentOrchestrator, get_agent
-from quant_platform.core.enums import AuditEventType
+from quant_platform.core.enums import AuditEventType, Direction
 from quant_platform.core.schemas import AgentArgument, EvidencePackage
 from quant_platform.models import MockModelProvider, ModelRequest, ModelResponse
 
@@ -119,3 +120,42 @@ class TestAuditTrail:
         assert len(events) == 1
         assert events[0]["details"]["ok"] is False
         assert "verdict crashed" in events[0]["details"]["error"]
+
+
+class TestClosedBookCitations:
+    def _package_with(self, evidence_ids, news_ids=()):
+        from conftest import make_evidence, make_news
+
+        return EvidencePackage(
+            run_id="r",
+            as_of_date=date(2024, 12, 31),
+            evidence=[make_evidence(eid) for eid in evidence_ids],
+            news=[make_news(nid) for nid in news_ids],
+        )
+
+    def test_unknown_citations_dropped(self):
+        from quant_platform.agents.registry import validate_citations
+
+        package = self._package_with(["ev1"], ["n1"])
+        arg = AgentArgument(
+            agent_name="sector", conclusion="x", confidence=0.8,
+            direction=Direction.POSITIVE, evidence_ids=["ev1", "n1", "hallucinated"],
+            as_of_date=date(2024, 12, 31),
+        )
+        out = validate_citations(arg, package)
+        assert out.evidence_ids == ["ev1", "n1"]
+        assert out.details["dropped_citations"] == "1"
+        assert out.confidence == 0.8  # some citations survived
+
+    def test_all_fabricated_citations_degrade_confidence(self):
+        from quant_platform.agents.registry import validate_citations
+
+        package = self._package_with(["ev1"])
+        arg = AgentArgument(
+            agent_name="sector", conclusion="x", confidence=0.8,
+            direction=Direction.POSITIVE, evidence_ids=["fake1", "fake2"],
+            as_of_date=date(2024, 12, 31),
+        )
+        out = validate_citations(arg, package)
+        assert out.evidence_ids == []
+        assert out.confidence == pytest.approx(0.4)

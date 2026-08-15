@@ -1,27 +1,71 @@
-# Target research sectors. Everything downstream is driven by this config —
-# sectors are NEVER hardcoded in business logic.
 sectors:
-  - id: ai_infrastructure
-    label: "AI Infrastructure"
-    description: "Accelerators, AI servers, networking, cloud AI capacity"
-  - id: memory_storage
-    label: "Memory & Storage"
-    description: "HBM, DRAM, NAND, storage controllers"
-  - id: cpu_inference
-    label: "CPU / Inference"
-    description: "CPUs, inference silicon, edge AI compute"
-  - id: datacenter_power
-    label: "Data Center Power / Cooling / Grid"
-    description: "Power generation, grid equipment, liquid cooling, electrical gear"
-  - id: robotics
-    label: "Robotics / Physical AI"
-    description: "Humanoids, industrial automation, autonomy"
-  - id: biotech_automation
-    label: "Biotech Automation"
-    description: "Lab automation, AI drug discovery tooling"
-  - id: critical_minerals
-    label: "Critical Minerals"
-    description: "Copper, uranium, rare earths, lithium supply chains"
-  - id: crypto_infrastructure
-    label: "Crypto Infrastructure"
-    description: "Exchanges, miners, custody, blockchain infrastructure"
+- id: ai_infrastructure
+  label: AI Infrastructure
+  description: Accelerators, AI servers, networking, cloud AI capacity
+  themes:
+  - accelerators / GPUs
+  - AI servers
+  - networking
+  - hyperscaler capex
+  - data-center demand
+- id: memory_storage
+  label: Memory & Storage
+  description: HBM, DRAM, NAND, storage controllers
+  themes:
+  - HBM
+  - DRAM
+  - NAND
+  - memory pricing
+  - storage demand
+  - semiconductor supply
+- id: cpu_inference
+  label: CPU / Inference
+  description: CPUs, inference silicon, edge AI compute
+  themes:
+  - server CPU
+  - inference silicon
+  - ARM
+  - AI inference demand
+- id: datacenter_power
+  label: Data Center Power / Cooling / Grid
+  description: Power generation, grid equipment, liquid cooling, electrical gear
+  themes:
+  - data-center electricity demand
+  - transformers
+  - grid capacity
+  - cooling
+  - power generation
+  - electrical equipment
+- id: robotics
+  label: Robotics / Physical AI
+  description: Humanoids, industrial automation, autonomy
+  themes:
+  - industrial automation
+  - humanoids
+  - sensors/actuators
+  - physical AI
+- id: biotech_automation
+  label: Biotech Automation
+  description: Lab automation, AI drug discovery tooling
+  themes:
+  - lab automation
+  - AI drug discovery tooling
+  - robotic labs
+- id: critical_minerals
+  label: Critical Minerals
+  description: Copper, uranium, rare earths, lithium supply chains
+  themes:
+  - copper
+  - uranium
+  - rare earths
+  - lithium
+  - geopolitical supply
+- id: crypto_infrastructure
+  label: Crypto Infrastructure
+  description: Exchanges, miners, custody, blockchain infrastructure
+  themes:
+  - exchanges
+  - miners
+  - custody
+  - tokenization
+  - stablecoin rails

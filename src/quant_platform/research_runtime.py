@@ -37,11 +37,12 @@ from typing import Any
 import pandas as pd
 
 from quant_platform.agents.orchestrator import AgentOrchestrator
+from quant_platform.agents.registry import sector_context_block
 from quant_platform.analysis import build_failure_record
 from quant_platform.backtest import BacktestConfig, run_backtest
 from quant_platform.core.audit import AuditLogger
 from quant_platform.core.config import EnvSettings, load_all_configs, load_yaml_config
-from quant_platform.core.enums import AuditEventType, SourceType
+from quant_platform.core.enums import AuditEventType, EvidenceCategory, SourceType
 from quant_platform.core.gatekeeper import FutureDataGate, ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import (
     EvidenceCard,
@@ -74,6 +75,22 @@ from quant_platform.research import (
     rank_sectors,
     validate_thesis,
 )
+from quant_platform.research.components import (
+    company_factors,
+    crowding_risk,
+    evidence_quality,
+    fundamental_confirmation,
+    liquidity,
+    macro_alignment,
+    market_confirmation,
+    package_features,
+    supply_chain_confidence,
+    validation_strength,
+    valuation_risk,
+)
+from quant_platform.research.components import (
+    trend_strength as component_trend_strength,
+)
 from quant_platform.research.news_intel import (
     build_query_plan,
     dedupe_news_records,
@@ -88,7 +105,6 @@ _SECURITY_COLS = ("security", "ticker")
 _DATE_COLS = ("date", "published", "published_at")
 _HEADLINE_COLS = ("headline", "title")
 _BODY_COLS = ("body", "story", "text")
-_EVIDENCE_BATCH = 16  # keep prompts small for the real API
 
 
 class ResearchRuntimeError(RuntimeError):
@@ -385,54 +401,90 @@ async def run_research(
     if provider is None:
         provider = KimiProvider(settings, audit=audit, run_id=run_id)
     try:
-        # 5. evidence extraction in small batches (Kimi reads; Python keeps provenance)
+        # 5. evidence extraction in token-budgeted batches (Kimi reads; Python keeps provenance)
         engine = EvidenceEngine(provider)
-        cards: list[EvidenceCard] = []
-        for i in range(0, len(news), _EVIDENCE_BATCH):
-            cards.extend(await engine.extract(news[i : i + _EVIDENCE_BATCH], as_of))
+        cards: list[EvidenceCard] = await engine.extract(news, as_of)
         if not cards:
             raise ResearchRuntimeError(
                 "Kimi extracted no usable evidence from the gathered news — refusing "
                 "to freeze an empty snapshot"
             )
 
-        # 6. theses + validation debate + scoring per sector (same components as the demo)
+        # 6. sector-specialist theses + validation debate + MEASURED scoring
         orchestrator = AgentOrchestrator(provider, audit=audit)
         scoring_cfg = load_scoring_config()
         label_to_id = {label: sid for sid, label in sector_labels.items()}
+        sector_configs = {s["id"]: s for s in load_yaml_config("sectors").get("sectors", [])}
+        universe_cfg = load_yaml_config("universe").get("universe", {})
+
+        # 6a. global macro/regime specialist over the macro evidence (runs once)
+        macro_cards = [c for c in cards if c.category == EvidenceCategory.MACRO_SIGNAL]
+        macro_arg = None
+        if macro_cards:
+            macro_package = EvidencePackage(
+                run_id=run_id,
+                as_of_date=as_of,
+                evidence=macro_cards,
+                news=news,
+                market_features_ref=f"features_{run_id}",
+            )
+            macro_arg = (await orchestrator.run(macro_package, agent_names=["macro"])).arguments.get(
+                "macro"
+            )
+
         submissions: list[SectorSubmission] = []
         for sector, sector_cards in sorted(group_evidence_by_sector(cards).items()):
+            sector_id = label_to_id.get(sector)
+            sec_cfg = sector_configs.get(sector_id, {})
+            candidates = (
+                list((universe_cfg.get(sector_id) or {}).get("securities", []))
+                if sector_id
+                else sorted({s for c in sector_cards for s in c.securities})
+            )
+            sector_features = (
+                features[features["ticker"].isin(candidates)] if candidates else features.iloc[0:0]
+            )
             package = EvidencePackage(
                 run_id=run_id,
                 as_of_date=as_of,
                 evidence=sector_cards,
                 news=news,
                 market_features_ref=f"features_{run_id}",
+                market_features=package_features(sector_features),
+                context_block=sector_context_block(
+                    sector_id or sector,
+                    sector,
+                    str(sec_cfg.get("description", "")),
+                    list(sec_cfg.get("themes", [])),
+                    candidates,
+                ),
             )
-            argued = await orchestrator.run(package, agent_names=["sector"])
-            thesis = build_thesis(sector, sector_cards, argued.arguments.get("sector"), as_of)
+            # sector specialist + market-facing specialists in parallel
+            argued = await orchestrator.run(
+                package,
+                agent_names=["sector", "supply_chain", "momentum", "valuation", "fundamental"],
+            )
+            args = argued.arguments
+            thesis = build_thesis(sector, sector_cards, args.get("sector"), as_of)
             validation = await validate_thesis(thesis, package, provider, audit=audit)
 
-            sector_features = features[features["ticker"].isin(thesis.candidate_securities)]
+            # every component is MEASURED or explicitly None — no placeholders
             components = {
-                "trend_strength": thesis.confidence,
-                "evidence_quality": min(
-                    1.0, sum(c.confidence * c.relevance for c in sector_cards) / len(sector_cards)
+                "trend_strength": component_trend_strength(thesis),
+                "evidence_quality": evidence_quality(sector_cards),
+                "supply_chain_confidence": supply_chain_confidence(
+                    sector_cards, args.get("supply_chain")
                 ),
-                "supply_chain_confidence": 0.5
-                if any(c.category.value == "supply_bottleneck" for c in sector_cards)
-                else 0.3,
-                "market_confirmation": float(sector_features["rank_ret_63d"].mean())
-                if not sector_features.empty and pd.notna(sector_features["rank_ret_63d"].mean())
-                else 0.0,
-                "fundamental_confirmation": 0.5,
-                "valuation_risk": 0.3,
-                "crowding_risk": 0.3,
-                "liquidity": float(sector_features["rank_dollar_volume"].mean())
-                if not sector_features.empty and pd.notna(sector_features["rank_dollar_volume"].mean())
-                else 0.0,
-                "macro_alignment": 0.6,
-                "validation_strength": validation.score,
+                "market_confirmation": market_confirmation(sector_features),
+                # strict PIT: current-snapshot reference data is inadmissible
+                # historically, so fundamentals are honestly missing unless
+                # vintage-safe records exist (none from these providers)
+                "fundamental_confirmation": fundamental_confirmation([], args.get("fundamental")),
+                "valuation_risk": valuation_risk(None, args.get("valuation")),
+                "crowding_risk": crowding_risk(sector_features),
+                "liquidity": liquidity(sector_features),
+                "macro_alignment": macro_alignment(macro_arg, sector_cards),
+                "validation_strength": validation_strength(validation.score),
             }
             scores = compute_score(components, scoring_cfg)
             submissions.append(
@@ -444,8 +496,39 @@ async def run_research(
                 )
             )
 
+        # 6b. cross-sector competition: the specialist compares theses; the
+        # deterministic ranking still owns the numbers (LLM never ranks)
+        cross_sector_note = ""
+        if len(submissions) > 1:
+            comparison = "\n".join(
+                f"- {s.thesis.sector}: composite={s.composite_score:.3f} "
+                f"validation={s.validation.status.value} "
+                f"completeness={s.scores.data_completeness:.2f} "
+                f":: {s.thesis.thesis_summary[:200]}"
+                for s in submissions
+            )
+            cs_package = EvidencePackage(
+                run_id=run_id,
+                as_of_date=as_of,
+                evidence=cards,
+                market_features_ref=f"features_{run_id}",
+                context_block="CROSS-SECTOR COMPETITION — compare these sector theses:\n"
+                + comparison,
+            )
+            cs_arg = (await orchestrator.run(cs_package, agent_names=["cross_sector"])).arguments.get(
+                "cross_sector"
+            )
+            if cs_arg is not None:
+                cross_sector_note = f"cross-sector view: {cs_arg.conclusion}"
+
         # 7. ranking → mapping/tradability → signals → portfolio + risk
         ranking = rank_sectors(submissions, run_id, as_of, scoring_cfg)
+        if cross_sector_note:
+            ranking = ranking.model_copy(
+                update={
+                    "selection_rationale": f"{ranking.selection_rationale} | {cross_sector_note}"
+                }
+            )
         selected = {r.sector for r in ranking.leaderboard if r.selected}
         mappings, etf_map, tradability = {}, {}, {}
         for sub in submissions:
@@ -468,7 +551,18 @@ async def run_research(
                 except DataValidationError:
                     ticker_bars = []  # no data -> cannot prove tradability
                 tradability[ticker] = check_tradability(ticker, ticker_bars, as_of)
-        signal_package = build_signals(submissions, ranking, mappings, tradability, etf_map, audit=audit)
+        # company-level differentiation: never one flat sector score
+        factors: dict[str, float] = {}
+        for sub in submissions:
+            label = sub.thesis.sector
+            sector_cards = [c for c in cards if label in c.sectors]
+            factors.update(
+                company_factors([m.ticker for m in mappings.get(label, [])], sector_cards, features)
+            )
+        signal_package = build_signals(
+            submissions, ranking, mappings, tradability, etf_map,
+            company_factors=factors, audit=audit,
+        )
         target = build_strategy("ensemble", signal_package.actionable, features, run_id, as_of)
         target = apply_risk_constraints(target, features=features)
 

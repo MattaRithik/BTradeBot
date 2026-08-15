@@ -47,23 +47,47 @@ class EvidenceExtraction(PlatformModel):
 
 _SYSTEM_PROMPT = (
     "You extract structured, citable evidence from news items for an "
-    "institutional research platform. For each MATERIAL item emit one card: "
+    "institutional research platform. You operate CLOSED-BOOK: only the "
+    "supplied items are admissible. For each MATERIAL item emit one card: "
     "the news_id it came from (never invent ids), a concise claim, the best "
     "category, the direction for the affected securities/sectors, your "
     "confidence, and the securities/sectors explicitly mentioned. Skip "
     "non-material noise. Never assert facts not present in the item."
 )
 
+_BODY_SNIPPET_CHARS = 400  # title + bounded summary/body, never full dumps
+_BATCH_CHAR_BUDGET = 24_000  # ~6k tokens per extraction call
+
 
 def _render_news(news: list[NewsRecord]) -> str:
     lines = []
     for item in news:
+        snippet = (item.body or "").strip()[:_BODY_SNIPPET_CHARS]
         lines.append(
             f"- {item.news_id} [{item.published_at.date().isoformat()}] "
             f"securities={','.join(item.securities) or '-'} "
             f"sectors={','.join(item.sectors) or '-'} :: {item.headline}"
+            + (f"\n  {snippet}" if snippet else "")
         )
     return "\n".join(lines)
+
+
+def batch_news(news: list[NewsRecord], char_budget: int = _BATCH_CHAR_BUDGET) -> list[list[NewsRecord]]:
+    """Pack news items into batches under an approximate token budget
+    (chars/4 ≈ tokens), so prompts stay bounded regardless of feed volume."""
+    batches: list[list[NewsRecord]] = []
+    current: list[NewsRecord] = []
+    size = 0
+    for item in news:
+        item_chars = len(item.headline) + min(len(item.body or ""), _BODY_SNIPPET_CHARS) + 80
+        if current and size + item_chars > char_budget:
+            batches.append(current)
+            current, size = [], 0
+        current.append(item)
+        size += item_chars
+    if current:
+        batches.append(current)
+    return batches
 
 
 class EvidenceEngine:
@@ -77,7 +101,13 @@ class EvidenceEngine:
         news: list[NewsRecord],
         as_of_date: date,
     ) -> list[EvidenceCard]:
-        """One extraction call per batch; Python assigns provenance afterwards."""
+        """One extraction call per token-budgeted batch; Python assigns provenance."""
+        cards: list[EvidenceCard] = []
+        for batch in batch_news(news):
+            cards.extend(await self._extract_batch(batch))
+        return cards
+
+    async def _extract_batch(self, news: list[NewsRecord]) -> list[EvidenceCard]:
         if not news:
             return []
         request = ModelRequest(

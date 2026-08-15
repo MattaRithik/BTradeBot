@@ -48,6 +48,7 @@ def build_signals(
     mappings: dict[str, list[CompanyMapping]],
     tradability: dict[str, TradabilityResult],
     etf_mappings: dict[str, list[str]] | None = None,
+    company_factors: dict[str, float] | None = None,
     audit: AuditLogger | None = None,
 ) -> SignalPackage:
     """Build the run's SignalPackage from ranking + mapping + tradability.
@@ -55,11 +56,18 @@ def build_signals(
     ``mappings`` / ``etf_mappings`` are keyed by sector label; ``tradability``
     is keyed by ticker. Securities without a tradability result are skipped
     (unknown liquidity is never traded).
+
+    ``company_factors`` differentiates companies WITHIN a selected sector:
+    factor f in [0, 1] maps the sector composite to a company raw_score of
+    composite * (0.5 + 0.5f), so two companies in the same sector never share
+    an identical raw score unless they genuinely measure identically. Missing
+    factor = neutral 0.5 (keeps the sector composite).
     """
     selected_sectors = {r.sector for r in ranking.leaderboard if r.selected}
     signals: list[Signal] = []
     warnings: list[str] = []
     as_of = ranking.as_of_date
+    factors = company_factors or {}
 
     for sub in submissions:
         sector = sub.thesis.sector
@@ -88,7 +96,8 @@ def build_signals(
         if not selected:
             continue
 
-        # 2. actionable security signals — tradable candidates only
+        # 2. actionable security signals — tradable candidates only,
+        #    differentiated per company (never one flat sector score)
         for mapping in mappings.get(sector, []):
             check = tradability.get(mapping.ticker)
             if check is None:
@@ -97,6 +106,8 @@ def build_signals(
             if not check.tradable:
                 warnings.append(f"{mapping.ticker}: not tradable ({'; '.join(check.reasons)})")
                 continue
+            factor = max(0.0, min(1.0, factors.get(mapping.ticker, 0.5)))
+            company_score = round(score * (0.5 + 0.5 * factor), 6)
             signals.append(
                 Signal(
                     signal_id=stable_id("sig", ranking.run_id, mapping.ticker, "security"),
@@ -104,12 +115,13 @@ def build_signals(
                     target_type=TargetType.SECURITY,
                     sector=sector,
                     ticker=mapping.ticker,
-                    raw_score=score,
+                    raw_score=company_score,
                     confidence=sub.validation.score,
                     signal_class=sector_class,
                     action_allowed=True,
                     sizing_inputs={
                         "composite_score": score,
+                        "company_factor": factor,
                         "validation_score": sub.validation.score,
                         "avg_dollar_volume": check.avg_dollar_volume or 0.0,
                     },
