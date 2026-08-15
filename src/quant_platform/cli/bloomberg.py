@@ -23,8 +23,15 @@ def _render(diag: ProviderDiagnostics) -> None:
     table.add_column("Capability")
     table.add_column("Status")
     table.add_column("Detail")
+    styles = {
+        "PASS": "green",
+        "FAIL": "red",
+        "NOT_CONFIGURED": "yellow",
+        "NOT_ENTITLED": "yellow",
+        "SKIPPED": "dim",
+    }
     for c in diag.checks:
-        style = {"PASS": "green", "FAIL": "red", "NOT_ENTITLED": "yellow", "SKIPPED": "dim"}.get(c.status, "")
+        style = styles.get(c.status, "")
         table.add_row(c.capability, f"[{style}]{c.status}[/{style}]", c.detail)
     console.print(table)
 
@@ -38,7 +45,7 @@ def doctor(
     settings = EnvSettings.from_env()
     cfg = load_yaml_config("bloomberg")
 
-    desktop = BloombergDesktopAdapter(host=settings.bloomberg_host, port=settings.bloomberg_port)
+    desktop = BloombergDesktopAdapter.from_config(settings)
     if export_only:
         console.print("[dim]BLPAPI probes skipped (--export-only)[/dim]")
         exit_code = 0
@@ -81,11 +88,12 @@ def sample(
     store = ArtifactStore(settings.data_root)
     bars = []
     if not export_only:
-        desktop = BloombergDesktopAdapter(host=settings.bloomberg_host, port=settings.bloomberg_port)
+        desktop = BloombergDesktopAdapter.from_config(settings)
         if desktop.package_available:
             try:
                 securities = [f"{t} US Equity" for t in universe]
                 bars = desktop.get_history(securities, start, end)
+                desktop.close()
                 console.print(f"[green]BLPAPI[/green] returned {len(bars)} bars")
             except Exception as exc:
                 console.print(f"[red]BLPAPI failed honestly:[/red] {exc}")
@@ -105,3 +113,74 @@ def sample(
     df = pd.DataFrame([b.model_dump(mode="json") for b in bars])
     path = store.save_table("normalized", f"sample_bars_{end.isoformat()}", df)
     console.print(f"saved {len(df)} bars -> {path}")
+
+
+@bloomberg_app.command("sync")
+def sync(
+    start: str = typer.Option(..., "--start", help="History start YYYY-MM-DD."),
+    end: str = typer.Option("latest", "--end", help="History end YYYY-MM-DD or 'latest'."),
+) -> None:
+    """Bulk-cache the full configured universe into the local bar store.
+
+    Resumable: tickers whose stored coverage already reaches ``--end`` are
+    skipped, so re-running after an interruption never re-downloads
+    immutable history. Requires a logged-in Bloomberg Terminal (BLPAPI).
+    """
+    from quant_platform.data.barstore import BarStore, sync_universe
+
+    load_dotenv_if_present()
+    settings = EnvSettings.from_env()
+    try:
+        start_date = date.fromisoformat(start)
+    except ValueError:
+        raise typer.BadParameter(f"--start must be YYYY-MM-DD, got {start!r}") from None
+    end_date = date.today() if end == "latest" else date.fromisoformat(end)
+
+    store = BarStore(settings.data_root / "cache" / "bloomberg")
+    tickers = sync_universe()
+    todo = []
+    for t in tickers:
+        cov = store.coverage(t)
+        if cov is not None and cov[0] <= start_date + timedelta(days=7) and cov[1] >= end_date - timedelta(days=4):
+            continue  # already covered — resumable skip
+        todo.append(t)
+    console.print(
+        f"sync universe: {len(tickers)} tickers, {len(todo)} to fetch "
+        f"({start_date}..{end_date}), {len(tickers) - len(todo)} already cached"
+    )
+    if not todo:
+        console.print("[green]bar store already covers the requested window[/green]")
+        return
+
+    adapter = BloombergDesktopAdapter.from_config(settings)
+    if not adapter.package_available:
+        console.print(
+            "[red]blpapi not installed[/red] — sync requires a logged-in Bloomberg Terminal:\n"
+            "python -m pip install --index-url="
+            "https://blpapi.bloomberg.com/repository/releases/python/simple/ blpapi"
+        )
+        raise typer.Exit(code=1)
+
+    fetched = failed = 0
+    try:
+        for t in todo:
+            security = t if " " in t else f"{t} US Equity"
+            try:
+                bars = adapter.get_history([security], start_date, end_date)
+            except Exception as exc:
+                failed += 1
+                console.print(f"[red]{t}: fetch failed honestly: {exc}[/red]")
+                continue
+            if not bars:
+                failed += 1
+                detail = adapter.partial_errors or ["no data returned"]
+                console.print(f"[red]{t}: no bars — {detail[0]}[/red]")
+                continue
+            added = store.write(t, bars, provider=adapter.name)
+            fetched += 1
+            console.print(f"[green]{t}[/green]: +{added} bars (total {len(bars)} fetched)")
+    finally:
+        adapter.close()
+    console.print(f"sync complete: {fetched} ticker(s) cached, {failed} failed")
+    if failed:
+        raise typer.Exit(code=1)

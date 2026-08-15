@@ -140,6 +140,7 @@ class BloombergExportAdapter:
                         currency=getattr(row, "currency", "USD")
                         if pd.notna(getattr(row, "currency", None))
                         else "USD",
+                        adjustment="split_adjusted_only",  # Bloomberg PX_LAST default
                         source=SourceType.BLOOMBERG_EXPORT,
                         source_ref=row.source_file,
                         retrieved_at=retrieved,

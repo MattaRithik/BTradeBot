@@ -31,7 +31,10 @@ class MarketBar(PointInTimeFields):
     close: float = Field(gt=0)
     volume: float = Field(ge=0)
     currency: str = "USD"
-    adjusted: bool = True  # adjusted for splits/dividends per source fields
+    # Corporate-action honesty: Bloomberg PX_LAST is split-adjusted ONLY —
+    # dividends are NOT reinvested unless a proven total-return field is used.
+    # Never label price-return bars as total return.
+    adjustment: str = "unknown"  # split_adjusted_only | total_return | unadjusted | unknown
     observed_at: UtcDatetime | None = None  # when the bar became observable
 
     @model_validator(mode="after")

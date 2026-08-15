@@ -182,8 +182,8 @@ HIST_MSG = FakeMessage(
 
 
 class TestDesktopAdapterContract:
-    def adapter(self, session_cls) -> BloombergDesktopAdapter:
-        return BloombergDesktopAdapter(blpapi_module=make_blpapi(session_cls))
+    def adapter(self, session_cls, **kwargs) -> BloombergDesktopAdapter:
+        return BloombergDesktopAdapter(blpapi_module=make_blpapi(session_cls), **kwargs)
 
     def test_reference_request_parsed(self):
         adapter = self.adapter(ok_session_class([REF_MSG]))
@@ -203,7 +203,7 @@ class TestDesktopAdapterContract:
         assert bar.close == 121.0 and bar.volume == 45_000_000.0
         assert bar.timestamp.tzinfo is not None
 
-    def test_security_error_skipped(self):
+    def test_security_error_collected_not_silent(self):
         msg = FakeMessage(
             {
                 "securityData": FakeElement(
@@ -213,6 +213,50 @@ class TestDesktopAdapterContract:
         )
         adapter = self.adapter(ok_session_class([msg]))
         assert adapter.get_reference(["BAD XX Equity"], ["PX_LAST"]) == []
+        assert adapter.partial_errors  # surfaced, never silently dropped
+        assert "BAD XX Equity" in adapter.partial_errors[0]
+
+    def test_session_reused_across_requests(self):
+        sessions: list = []
+
+        class TrackingSession(ok_session_class([HIST_MSG])):
+            def __init__(self, options):
+                super().__init__(options)
+                sessions.append(self)
+
+            def start(self):
+                return True
+
+        adapter = self.adapter(TrackingSession)
+        adapter.get_history(["NVDA US Equity"], date(2024, 6, 1), date(2024, 6, 30))
+        adapter.get_history(["NVDA US Equity"], date(2024, 6, 1), date(2024, 6, 30))
+        adapter.close()
+        assert len(sessions) == 1  # ONE reusable session, not one per request
+
+    def test_chunking_splits_large_universes(self):
+        requests_seen: list = []
+
+        class CountingSession(ok_session_class([HIST_MSG])):
+            def sendRequest(self, request):
+                requests_seen.append(request)
+
+        adapter = self.adapter(CountingSession, max_securities_per_request=2)
+        bars = adapter.get_history(
+            ["A US Equity", "B US Equity", "C US Equity", "D US Equity", "E US Equity"],
+            date(2024, 6, 1),
+            date(2024, 6, 30),
+        )
+        assert bars  # fake replays its scripted messages per chunk
+        assert len(requests_seen) == 3  # 5 tickers / chunk size 2 -> 3 requests
+        counts = [len(r.getElement("securities").data.get("_list", [])) for r in requests_seen]
+        assert counts == [2, 2, 1]
+
+    def test_bar_timestamped_at_market_close_et(self):
+        adapter = self.adapter(ok_session_class([HIST_MSG]))
+        bars = adapter.get_history(["NVDA US Equity"], date(2024, 6, 1), date(2024, 6, 30))
+        # June: EDT (UTC-4) — 16:00 ET == 20:00 UTC
+        assert bars[0].timestamp.hour == 20
+        assert bars[0].adjustment == "split_adjusted_only"
 
     def test_session_failure_raises(self):
         class FailSession(ok_session_class([])):
@@ -231,7 +275,7 @@ class TestDesktopDiagnostics:
         adapter._blpapi = None
         diag = adapter.diagnose()
         assert not diag.available
-        assert diag.by_capability("python_package").status == "FAIL"
+        assert diag.by_capability("python_package").status == "NOT_CONFIGURED"
         assert diag.by_capability("historical_request").status == "SKIPPED"
 
     def test_full_success_with_news_not_entitled(self):

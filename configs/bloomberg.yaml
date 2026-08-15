@@ -15,5 +15,8 @@ export:
   inbox: "data/raw/bloomberg_exports"
 corporate_actions:
   # Bloomberg PX_LAST is split-adjusted by default; dividends NOT reinvested
-  # unless total-return fields are imported. Documented in docs/BLOOMBERG_SETUP.md
+  # unless a proven total-return field is configured below and doctor-tested.
   adjusted_close_assumption: split_adjusted_only
+  # Optional total-return field (e.g. TOT_RETURN_INDEX_GROSS_DVDS). Empty =
+  # price return only; evaluation output states dividends are excluded.
+  total_return_field: ""

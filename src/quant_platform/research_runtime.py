@@ -52,6 +52,7 @@ from quant_platform.core.schemas import (
 )
 from quant_platform.core.store import ArtifactStore
 from quant_platform.core.timeutil import start_of_day_utc, utc_now
+from quant_platform.data.barstore import BarStore, CachingMarketProvider
 from quant_platform.data.bloomberg_desktop import BloombergDesktopAdapter
 from quant_platform.data.bloomberg_export import BloombergExportAdapter
 from quant_platform.data.newscatcher import NewsCatcherError, NewsCatcherProvider
@@ -253,20 +254,22 @@ async def run_research(
     tickers = tickers or list(load_yaml_config("universe")["college_test_universe"])
     ticker_to_label, sector_labels = _sector_label_map()
 
-    # 1. real market data source (desktop API when present, export inbox otherwise)
+    # 1. real market data source: cache-first bar store backed by the desktop
+    # API when blpapi is importable, the terminal export inbox otherwise.
+    # The store never decides visibility — PITRepository/TimeGatekeeper do.
     if market_adapter is None:
-        desktop = BloombergDesktopAdapter(host=settings.bloomberg_host, port=settings.bloomberg_port)
+        desktop = BloombergDesktopAdapter.from_config(settings)
         if desktop.package_available:
-            market_adapter, source_name = desktop, "bloomberg_desktop"
+            inner: Any = _DesktopSecuritiesFacade(desktop)
+            source_name = "bloomberg_desktop"
         else:
-            market_adapter, source_name = BloombergExportAdapter(inbox), "bloomberg_export"
+            inner = BloombergExportAdapter(inbox)
+            source_name = "bloomberg_export"
+        bar_store = BarStore(data_root / "cache" / "bloomberg")
+        source: Any = CachingMarketProvider(bar_store, inner=inner)
     else:
+        source = market_adapter
         source_name = getattr(market_adapter, "name", type(market_adapter).__name__)
-    source = (
-        _DesktopSecuritiesFacade(market_adapter)
-        if hasattr(market_adapter, "package_available")
-        else market_adapter
-    )
 
     end = date.today()
     start = end - timedelta(days=history_days)
