@@ -453,3 +453,22 @@ class TestCachedFutureLeak:
         assert stats["cache_hits"] == 1
         assert stats["api_calls"] == 0
         assert stats["future_dropped"] == 1
+
+
+class TestDuplicateProvenance:
+    def test_dropped_duplicates_carry_duplicate_of(self):
+        shared_url = "https://example.com/story?utm_source=feed"
+        a1 = make_article("a1", url=shared_url, raw_provider_id="", title="Same story")
+        a2 = make_article("a2", url=shared_url + "&utm_medium=x", raw_provider_id="", title="Same story")
+        a2 = a2.model_copy(update={"published_at": dt(2024, 12, 30, 13)})
+        dropped: list = []
+        reps = deduplicate([a1, a2], dropped=dropped)
+        assert len(reps) == 1
+        assert reps[0].source_confirmation == 2
+        assert len(dropped) == 1
+        assert dropped[0].duplicate_of == reps[0].article_id
+
+    def test_no_dropped_param_keeps_old_contract(self):
+        a1 = make_article("a1", url="https://example.com/x")
+        a2 = make_article("a2", url="https://example.com/x")
+        assert len(deduplicate([a1, a2])) == 1

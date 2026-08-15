@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -19,6 +19,7 @@ import pytest
 
 from quant_platform.core.config import EnvSettings
 from quant_platform.core.schemas import NewsArticle
+from quant_platform.core.timeutil import utc_now
 from quant_platform.data.newscatcher import (
     MockNewsProvider,
     NewsCatcherError,
@@ -405,3 +406,42 @@ class TestLive:
         finally:
             await provider.aclose()
         assert status == "PASS", detail
+
+
+class TestCacheTTL:
+    def _provider(self, tmp_path):
+        settings = EnvSettings(newscatcher_api_key="test-key")
+        return NewsCatcherProvider(
+            settings,
+            client=None,
+            cache_dir=tmp_path,
+            config={"provider": {"backoff_base_seconds": 0.0}},
+        )
+
+    def test_historical_window_cached_forever(self, tmp_path):
+        provider = self._provider(tmp_path)
+        historical_to = date.today() - timedelta(days=30)
+        old_retrieval = utc_now() - timedelta(days=365)
+        assert not provider._cache_stale(old_retrieval, historical_to)
+
+    def test_recent_window_expires_after_ttl(self, tmp_path):
+        provider = self._provider(tmp_path)
+        recent_to = date.today()
+        assert not provider._cache_stale(utc_now(), recent_to)
+        assert provider._cache_stale(utc_now() - timedelta(hours=12), recent_to)
+
+
+class TestArticleBudgetGuard:
+    async def test_max_articles_per_run_stops_pagination(self, tmp_path):
+        settings = EnvSettings(newscatcher_api_key="test-key")
+        page = {"articles": [{"title": f"t{i}", "published_date": "2024-12-30"} for i in range(50)]}
+        client = FakeClient([FakeResponse(200, page) for _ in range(5)])
+        provider = NewsCatcherProvider(
+            settings,
+            client=client,
+            cache_dir=tmp_path,
+            config={"provider": {"backoff_base_seconds": 0.0, "max_articles_per_run": 60}},
+        )
+        out = await provider.search("q", date(2024, 12, 1), date(2024, 12, 31))
+        assert len(out) == 60
+        assert len(client.requests) == 2  # stopped early — no third page fetched

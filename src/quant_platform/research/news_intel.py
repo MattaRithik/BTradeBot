@@ -179,14 +179,18 @@ def _cluster_key(article: NewsArticle) -> tuple[str, ...]:
     return ("hash", article.content_hash)
 
 
-def deduplicate(articles: list[NewsArticle]) -> list[NewsArticle]:
+def deduplicate(
+    articles: list[NewsArticle], dropped: list[NewsArticle] | None = None
+) -> list[NewsArticle]:
     """Cluster duplicates; return representatives only, sorted by published_at.
 
     Cluster key precedence: raw_provider_id, else canonical_url, else
     (normalize_title, published date), else content_hash. The representative
     is the earliest-published member; it carries cluster_id and
-    source_confirmation = cluster size. Non-representatives are dropped
-    (their duplicate_of would point at the representative's article_id).
+    source_confirmation = cluster size. Non-representatives are dropped from
+    the result; when ``dropped`` is given they are appended there with
+    ``duplicate_of`` pointing at the representative's article_id (provenance
+    for syndicated-story accounting).
     """
     groups: dict[tuple[str, ...], list[NewsArticle]] = {}
     for article in articles:
@@ -198,6 +202,10 @@ def deduplicate(articles: list[NewsArticle]) -> list[NewsArticle]:
         if len(members) > 1:
             cluster_id = "cluster_" + hashlib.sha256(repr(key).encode()).hexdigest()[:12]
             rep = rep.model_copy(update={"cluster_id": cluster_id, "source_confirmation": len(members)})
+            if dropped is not None:
+                dropped.extend(
+                    m.model_copy(update={"duplicate_of": rep.article_id}) for m in members[1:]
+                )
         representatives.append(rep)
     representatives.sort(key=lambda a: a.published_at)
     return representatives

@@ -46,7 +46,14 @@ _DEFAULT_PROVIDER: dict[str, Any] = {
     "max_api_calls_per_run": 100,
     "max_articles_per_run": 300,
 }
-_DEFAULT_CACHE: dict[str, Any] = {"enabled": True, "dir": "data/raw/news_cache"}
+_DEFAULT_CACHE: dict[str, Any] = {
+    "enabled": True,
+    "dir": "data/raw/news_cache",
+    # Historical (immutable) windows are cached forever; windows reaching the
+    # recent past expire so current-mode runs see fresh news.
+    "recent_threshold_days": 2,
+    "ttl_hours_recent": 6.0,
+}
 
 
 class NewsCatcherError(RuntimeError):
@@ -189,12 +196,19 @@ class NewsCatcherProvider:
         self.cache_dir = (
             Path(cache_dir) if cache_dir is not None else Path(c.get("dir") or _DEFAULT_CACHE["dir"])
         )
+        self.cache_recent_threshold_days = int(
+            c.get("recent_threshold_days", _DEFAULT_CACHE["recent_threshold_days"])
+        )
+        self.cache_ttl_hours_recent = float(
+            c.get("ttl_hours_recent", _DEFAULT_CACHE["ttl_hours_recent"])
+        )
         self.audit = audit
         self._client = client
         self._owns_client = client is None
         self.api_calls = 0  # logical page fetches that hit the network
         self.cache_hits = 0
         self.skipped_articles = 0
+        self.articles_fetched = 0  # run-level article budget consumption
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -234,6 +248,20 @@ class NewsCatcherProvider:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         payload = {"retrieved_at": retrieved_at.isoformat(), "body": body}
         self._cache_path(key).write_text(json.dumps(payload, default=str), encoding="utf-8")
+
+    def _cache_stale(self, retrieved_at: datetime, to_date: date) -> bool:
+        """Immutable historical windows never expire; recent windows do.
+
+        A query whose ``to`` date is safely in the past asks for a fixed,
+        immutable slice of history — cache it forever. A window reaching the
+        recent past must refresh after ``ttl_hours_recent`` so current-mode
+        runs are not served stale news.
+        """
+        threshold = utc_now().date() - timedelta(days=self.cache_recent_threshold_days)
+        if to_date < threshold:
+            return False
+        age = utc_now() - retrieved_at
+        return age > timedelta(hours=self.cache_ttl_hours_recent)
 
     # -- the call --------------------------------------------------------------
     async def _post_with_retries(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -289,7 +317,7 @@ class NewsCatcherProvider:
         key = self._cache_key(payload)
         if self.cache_enabled:
             hit = self._read_cache(key)
-            if hit is not None:
+            if hit is not None and not self._cache_stale(hit[1], to_date):
                 self.cache_hits += 1
                 return hit
         if self.api_calls >= self.max_api_calls_per_run:
@@ -305,9 +333,15 @@ class NewsCatcherProvider:
         return body, retrieved_at
 
     async def search(self, query: str, from_date: date, to_date: date) -> list[NewsArticle]:
-        """Search one query over a date range, following pages honestly."""
+        """Search one query over a date range, following pages honestly.
+
+        ``max_articles_per_run`` is a real fetch guard: pagination stops once
+        the RUN's article budget is reached (never a silent post-hoc trim).
+        """
         articles: list[NewsArticle] = []
         for page in range(1, self.max_pages_per_query + 1):
+            if self.articles_fetched + len(articles) >= self.max_articles_per_run:
+                break
             body, retrieved_at = await self._request_page(query, from_date, to_date, page)
             raw_articles = body["articles"]
             if not raw_articles:
@@ -320,6 +354,9 @@ class NewsCatcherProvider:
                 articles.append(article)
             if len(raw_articles) < self.page_size:
                 break  # short page = last page
+        remaining = max(0, self.max_articles_per_run - self.articles_fetched)
+        articles = articles[:remaining]
+        self.articles_fetched += len(articles)
         return articles
 
     async def ping(self) -> tuple[str, str]:
