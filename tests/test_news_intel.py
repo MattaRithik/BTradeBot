@@ -14,10 +14,10 @@ from itertools import pairwise
 from typing import Any
 
 from quant_platform.core.config import EnvSettings
+from quant_platform.core.decision import DecisionClock
 from quant_platform.core.enums import SourceType
 from quant_platform.core.gatekeeper import ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import NewsArticle
-from quant_platform.core.timeutil import end_of_day_utc
 from quant_platform.data.newscatcher import MockNewsProvider, NewsCatcherProvider
 from quant_platform.research.news_intel import (
     NewsQuery,
@@ -33,7 +33,7 @@ from quant_platform.research.news_intel import (
 )
 
 AS_OF = date(2024, 12, 31)
-CUTOFF = end_of_day_utc(AS_OF)
+CUTOFF = DecisionClock().cutoff_for(AS_OF)  # 16:15 ET == 21:15 UTC
 
 NEWS_CFG: dict[str, Any] = {
     "provider": {"max_articles_per_run": 300},

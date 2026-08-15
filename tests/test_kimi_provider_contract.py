@@ -8,6 +8,7 @@ cost, audit MODEL_CALL, and refuse when unauthenticated or over budget.
 from __future__ import annotations
 
 import json
+import tempfile
 from typing import Any
 
 import httpx
@@ -25,6 +26,7 @@ from quant_platform.models import (
     ModelRequest,
     UsageTracker,
 )
+from quant_platform.models.provider import DailyUsageLedger
 
 _SECRET = "test-secret-key"
 
@@ -94,6 +96,11 @@ def _provider(client: FakeClient, **kwargs: Any) -> KimiProvider:
     kwargs.setdefault("settings", _settings())
     kwargs.setdefault("gateway", _gateway())
     kwargs.setdefault("client", client)
+    # isolate the persistent cache + ledger per provider (no cross-test leakage)
+    kwargs.setdefault("cache_dir", tempfile.mkdtemp(prefix="kimi_cache_"))
+    kwargs.setdefault(
+        "ledger", DailyUsageLedger(tempfile.mkdtemp(prefix="kimi_ledger_"), budget_usd_per_day=0.0)
+    )
     return KimiProvider(**kwargs)
 
 

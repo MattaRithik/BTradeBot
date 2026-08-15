@@ -9,7 +9,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from quant_platform.core.config import EnvSettings, load_dotenv_if_present, load_yaml_config
+from quant_platform.core.config import (
+    EnvSettings,
+    load_all_configs,
+    load_dotenv_if_present,
+)
 
 app = typer.Typer(
     name="quantctl",
@@ -71,10 +75,10 @@ def doctor() -> None:
         return "PASS", "dry-run default active; nothing will be submitted"
 
     def _configs() -> tuple[str, str]:
-        names = ["sectors", "universe", "benchmarks", "models", "risk", "backtest", "bloomberg", "ibkr", "scoring"]
-        loaded = [n for n in names if (Path("configs") / f"{n}.yaml").exists()]
-        missing = set(names) - set(loaded)
-        return ("PASS", f"loaded {len(loaded)} configs") if not missing else ("FAIL", f"missing: {sorted(missing)}")
+        from quant_platform.core.config import DEFAULT_CONFIG_DIR
+
+        found = sorted(p.stem for p in DEFAULT_CONFIG_DIR.glob("*.yaml"))
+        return ("PASS", f"loaded {len(found)} configs") if found else ("FAIL", f"no configs in {DEFAULT_CONFIG_DIR}")
 
     def _dirs() -> tuple[str, str]:
         from quant_platform.core.store import ArtifactStore
@@ -99,7 +103,11 @@ def doctor() -> None:
         s = _settings()
         if s.kimi_configured:
             return "PASS", f"KIMI_API_KEY present, model={s.kimi_model} (key not shown)"
-        return "PASS", "no KIMI_API_KEY — MockModelProvider will be used"
+        return (
+            "NOT_CONFIGURED",
+            "no KIMI_API_KEY — real research runs will fail; MockModelProvider "
+            "covers only the offline demo/tests",
+        )
 
     check("environment", _env)
     check("safety defaults", _safety)
@@ -131,10 +139,10 @@ app.add_typer(config_app, name="config")
 def config_check() -> None:
     """Validate every YAML config loads and safety invariants hold."""
     settings = _settings()
-    for name in ("sectors", "universe", "benchmarks", "models", "risk", "backtest", "bloomberg", "ibkr", "scoring", "dashboard"):
-        data = load_yaml_config(name)
+    configs = load_all_configs()
+    for name, data in configs.items():
         console.print(f"[green]OK[/green] configs/{name}.yaml ({len(data)} top-level keys)")
-    scoring = load_yaml_config("scoring")
+    scoring = configs["scoring"]
     total = sum(scoring["weights"].values())
     if abs(total - 1.0) > 1e-6:
         console.print(f"[red]FAIL[/red] scoring weights sum to {total}, expected 1.0")
@@ -158,7 +166,8 @@ def dashboard() -> None:
     from quant_platform.dashboard import app as _app
 
     app_path = Path(_app.__file__)
-    raise typer.Exit(code=subprocess.call(["streamlit", "run", str(app_path)]))
+    # sys.executable -m streamlit: never binds the wrong interpreter (Windows-safe)
+    raise typer.Exit(code=subprocess.call([sys.executable, "-m", "streamlit", "run", str(app_path)]))
 
 
 if __name__ == "__main__":

@@ -66,3 +66,35 @@ class TestArtifactStore:
         p = tmp_path / "x.json"
         p.write_text(json.dumps({"a": 1}))
         assert store.hash_file(p) == store.hash_file(p)
+
+
+class TestAuditRedaction:
+    def test_secret_looking_values_redacted(self, audit):
+        from quant_platform.core.enums import AuditEventType
+
+        audit.record(
+            AuditEventType.DATA_QUALITY_ISSUE,
+            detail="Authorization: Bearer sk-abc123 failed",
+            nested={"authorization": "sk-abc123", "note": "api_key=sk-abc123"},
+        )
+        entry = audit.read_all()[0]
+        assert "sk-abc123" not in str(entry)
+        assert entry["details"]["nested"]["authorization"] == "***"
+
+    def test_benign_values_untouched(self, audit):
+        from quant_platform.core.enums import AuditEventType
+
+        audit.record(AuditEventType.DATA_QUALITY_ISSUE, what="partial errors", count=3)
+        entry = audit.read_all()[0]
+        assert entry["details"]["what"] == "partial errors"
+        assert entry["details"]["count"] == 3
+
+
+class TestRunManifest:
+    def test_run_dir_and_manifest_roundtrip(self, store):
+        path = store.save_manifest("run_x", {"run_id": "run_x", "snapshot_id": "snap_1"})
+        import json
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data["run_id"] == "run_x"
+        assert path.parent == store.run_dir("run_x")

@@ -11,6 +11,13 @@ returns cached=True responses with zero cost. Every real call is audited as
 MODEL_CALL with model/tokens/cost only — never the API key.
 
 The httpx.AsyncClient is injectable so contract tests run fully offline.
+
+Caching is PERSISTENT and content-addressed: when enabled, each response is
+stored under ``<data_root>/cache/model/<sha256>.json`` keyed by the full
+request content (model, task, prompts, schema, max_tokens, temperature), so
+a process restart never repays for an identical call. A persistent per-day
+usage ledger (``<data_root>/cache/model/usage/YYYY-MM-DD.json``) enforces
+MODEL_BUDGET_USD_PER_DAY across restarts in addition to the per-run budget.
 """
 
 from __future__ import annotations
@@ -18,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -26,7 +34,9 @@ from pydantic import ValidationError
 from quant_platform.core.audit import AuditLogger
 from quant_platform.core.config import EnvSettings, load_yaml_config
 from quant_platform.core.enums import AuditEventType
+from quant_platform.core.timeutil import utc_now
 from quant_platform.models.provider import (
+    DailyUsageLedger,
     ModelOutputValidationError,
     ModelProvider,
     ModelProviderError,
@@ -68,6 +78,8 @@ class KimiProvider(ModelProvider):
         tracker: UsageTracker | None = None,
         client: httpx.AsyncClient | None = None,
         run_id: str = "",
+        cache_dir: Path | str | None = None,
+        ledger: DailyUsageLedger | None = None,
     ) -> None:
         self.settings = settings or EnvSettings.from_env()
         if not self.settings.kimi_configured:
@@ -84,10 +96,19 @@ class KimiProvider(ModelProvider):
         self.pricing = gw.get("pricing_usd_per_mtok", {}) or {}
         self.audit = audit
         self.tracker = tracker or UsageTracker(self.settings.model_budget_usd_per_run)
+        self.ledger = ledger or DailyUsageLedger(
+            Path(self.settings.data_root) / "cache" / "model" / "usage",
+            self.settings.model_budget_usd_per_day,
+        )
         self.run_id = run_id
         self._client = client
         self._owns_client = client is None
         self._cache: dict[str, ModelResponse] = {}
+        self._cache_dir = (
+            Path(cache_dir)
+            if cache_dir is not None
+            else Path(self.settings.data_root) / "cache" / "model" / "responses"
+        )
 
     @property
     def model(self) -> str:
@@ -128,11 +149,58 @@ class KimiProvider(ModelProvider):
             "system_prompt": request.system_prompt,
             "user_prompt": request.user_prompt,
             "response_schema": request.response_schema,
+            "response_model": (
+                f"{request.response_model.__module__}.{request.response_model.__qualname__}"
+                if request.response_model is not None
+                else None
+            ),
             "max_tokens": request.max_tokens,
             "temperature": request.temperature,
         }
         blob = json.dumps(payload, sort_keys=True, default=str)
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+    def prompt_hash(self, request: ModelRequest) -> str:
+        """Non-secret content hash of a request — provenance for snapshots."""
+        return self._cache_key(request)[:16]
+
+    def _disk_cache_path(self, cache_key: str) -> Path:
+        return self._cache_dir / f"{cache_key}.json"
+
+    def _disk_cache_read(self, cache_key: str, request: ModelRequest) -> ModelResponse | None:
+        path = self._disk_cache_path(cache_key)
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None  # corrupt entry — ignore, never crash a run
+        structured = None
+        if request.response_model is not None and data.get("structured") is not None:
+            try:
+                structured = request.response_model.model_validate(data["structured"])
+            except ValidationError:
+                return None  # schema drift — treat as a miss
+        return ModelResponse(
+            text=data["text"],
+            structured=structured,
+            prompt_tokens=int(data.get("prompt_tokens", 0)),
+            completion_tokens=int(data.get("completion_tokens", 0)),
+            cost_usd=0.0,
+            model=str(data.get("model", self.model)),
+            cached=True,
+        )
+
+    def _disk_cache_write(self, cache_key: str, response: ModelResponse) -> None:
+        try:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            payload = response.model_dump(mode="json")
+            payload["created_at"] = utc_now().isoformat()
+            tmp = self._disk_cache_path(cache_key).with_suffix(".tmp")
+            tmp.write_text(json.dumps(payload), encoding="utf-8")
+            tmp.replace(self._disk_cache_path(cache_key))
+        except OSError:
+            pass  # cache is an optimization — never fail a real call over it
 
     # -- the call ----------------------------------------------------------
     def _payload(self, request: ModelRequest) -> dict[str, Any]:
@@ -151,15 +219,32 @@ class KimiProvider(ModelProvider):
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         cache_key = self._cache_key(request)
-        if self.cache_enabled and cache_key in self._cache:
-            return self._cache[cache_key].model_copy(update={"cached": True, "cost_usd": 0.0})
+        if self.cache_enabled:
+            if cache_key in self._cache:
+                return self._cache[cache_key].model_copy(update={"cached": True, "cost_usd": 0.0})
+            hit = self._disk_cache_read(cache_key, request)
+            if hit is not None:
+                self._cache[cache_key] = hit
+                if self.audit is not None:
+                    self.audit.record(
+                        AuditEventType.MODEL_CALL,
+                        run_id=self.run_id,
+                        provider=self.name,
+                        model=hit.model,
+                        task=request.task,
+                        prompt_hash=cache_key[:16],
+                        cached=True,
+                    )
+                return hit
 
         self.tracker.check_budget()  # refused BEFORE spending over budget
+        self.ledger.check_budget()  # persistent per-day guard
 
         body = await self._post_with_retries(self._payload(request))
         response = self._parse(body, request)
 
         self.tracker.record(response.prompt_tokens, response.completion_tokens, response.cost_usd)
+        self.ledger.record(response.prompt_tokens, response.completion_tokens, response.cost_usd)
         if self.audit is not None:
             self.audit.record(
                 AuditEventType.MODEL_CALL,
@@ -167,6 +252,7 @@ class KimiProvider(ModelProvider):
                 provider=self.name,
                 model=response.model,
                 task=request.task,
+                prompt_hash=cache_key[:16],
                 prompt_tokens=response.prompt_tokens,
                 completion_tokens=response.completion_tokens,
                 cost_usd=response.cost_usd,
@@ -174,6 +260,7 @@ class KimiProvider(ModelProvider):
             )
         if self.cache_enabled:
             self._cache[cache_key] = response
+            self._disk_cache_write(cache_key, response)
         return response
 
     async def _post_with_retries(self, payload: dict[str, Any]) -> dict[str, Any]:

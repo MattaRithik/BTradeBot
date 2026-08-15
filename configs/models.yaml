@@ -32,5 +32,8 @@ gateway:
   backoff_base_seconds: 1.0
   max_concurrency: 8
   cache_enabled: true
-  # USD per 1M tokens (input, output) — update from official pricing when known.
-  pricing_usd_per_mtok: {}
+  # USD per 1M tokens (input, output). Values below follow the published
+  # kimi-k2 API price card (platform.moonshot.ai); VERIFY against your plan —
+  # budgets can only trip when pricing for the configured KIMI_MODEL is set.
+  pricing_usd_per_mtok:
+    kimi-k2.6: {input: 0.60, output: 2.50}

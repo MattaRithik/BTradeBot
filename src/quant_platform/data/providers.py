@@ -19,7 +19,7 @@ class DiagnosticStatus(PlatformModel):
     """One capability probe result."""
 
     capability: str
-    status: str  # PASS | FAIL | NOT_ENTITLED | SKIPPED
+    status: str  # PASS | FAIL | NOT_CONFIGURED | NOT_ENTITLED | SKIPPED
     detail: str = ""
 
     @property

@@ -60,7 +60,12 @@ def doctor() -> None:
 
     # 1./2. API key (never printed) + real ping (auth, minimal search, normalization)
     if not settings.newscatcher_configured:
-        _row(table, "api key", "FAIL", "NEWSCATCHER_API_KEY not set (.env locally) — key is never printed")
+        _row(
+            table,
+            "api key",
+            "NOT_CONFIGURED",
+            "NEWSCATCHER_API_KEY not set (.env locally) — key is never printed",
+        )
         _row(table, "api ping", "SKIPPED", "no key — ping skipped")
         failures += 1
     else:

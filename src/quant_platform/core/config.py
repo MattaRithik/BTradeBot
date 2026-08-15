@@ -122,6 +122,19 @@ def load_yaml_config(name: str, config_dir: Path | None = None) -> dict[str, Any
     return data
 
 
+def load_all_configs(config_dir: Path | None = None) -> dict[str, Any]:
+    """Load every YAML config in the config dir as ``{stem: mapping}``.
+
+    Used for snapshot provenance: the config hash must cover the whole
+    configuration surface, not a hand-picked subset.
+    """
+    directory = config_dir or DEFAULT_CONFIG_DIR
+    return {
+        path.stem: load_yaml_config(path.stem, directory)
+        for path in sorted(directory.glob("*.yaml"))
+    }
+
+
 def load_dotenv_if_present(path: Path | None = None) -> None:
     """Minimal .env loader (no extra dependency). Does not override real env."""
     env_path = path or (PROJECT_ROOT / ".env")

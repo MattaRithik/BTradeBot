@@ -1,8 +1,9 @@
 """Append-only audit log. Every material decision emits an event.
 
 Audit records are JSON Lines, one per line, append-only. Secrets never enter
-the audit stream (the logging redactor is defense-in-depth; we also refuse
-fields named like secrets outright).
+the audit stream: fields NAMED like secrets are refused outright, and
+secret-looking VALUES (Bearer tokens, api_key=..., etc.) are redacted with
+the same patterns as the structured logging pipeline.
 """
 
 from __future__ import annotations
@@ -13,9 +14,26 @@ from pathlib import Path
 from typing import Any
 
 from quant_platform.core.enums import AuditEventType
+from quant_platform.core.logging import _SECRET_PATTERNS
 from quant_platform.core.timeutil import utc_now
 
 _FORBIDDEN_KEYS = {"api_key", "apikey", "secret", "token", "password", "authorization"}
+
+
+def _redact_value(value: Any) -> Any:
+    """Redact secret-looking strings; recurse into nested structures."""
+    if isinstance(value, str):
+        for pat, repl in _SECRET_PATTERNS:
+            value = pat.sub(repl, value)
+        return value
+    if isinstance(value, dict):
+        return {
+            k: ("***" if k.lower() in _FORBIDDEN_KEYS else _redact_value(v))
+            for k, v in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_value(v) for v in value]
+    return value
 
 
 class AuditLogger:
@@ -41,7 +59,7 @@ class AuditLogger:
             "event": event.value,
             "run_id": run_id,
             "as_of_date": as_of_date,
-            "details": json.loads(json.dumps(details, default=str)),
+            "details": _redact_value(json.loads(json.dumps(details, default=str))),
         }
         line = json.dumps(entry, separators=(",", ":"))
         with self._lock, self.path.open("a", encoding="utf-8") as fh:

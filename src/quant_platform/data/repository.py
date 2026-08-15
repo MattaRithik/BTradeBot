@@ -72,9 +72,25 @@ class PITRepository:
         start: date,
         end: date,
     ) -> list[MarketBar]:
-        """Daily bars, filtered to timestamps at/before the context cutoff."""
+        """Daily bars, filtered to timestamps at/before the context cutoff.
+
+        The request window is clamped to ``context.as_of_date`` BEFORE the
+        provider is called — a post-cutoff window is never even requested
+        (clamps are audited as DATA_WINDOW_CLAMPED). The post-fetch
+        TimeGatekeeper filter stays as defense-in-depth.
+        """
         gate = self._gatekeeper(context)
-        fetched = self.market_provider.get_history(tickers, start, end)
+        clamped_end = min(end, context.as_of_date)
+        if clamped_end != end and self.audit is not None:
+            self.audit.record(
+                AuditEventType.DATA_WINDOW_CLAMPED,
+                run_id=context.run_id,
+                as_of_date=context.as_of_date.isoformat(),
+                kind="bars",
+                requested_end=end.isoformat(),
+                clamped_end=clamped_end.isoformat(),
+            )
+        fetched = self.market_provider.get_history(tickers, start, clamped_end)
         bars = gate.filter_by_timestamp(fetched, what="market_bar")
         self._record_fetch(
             context,
@@ -82,7 +98,7 @@ class PITRepository:
             provider=getattr(self.market_provider, "name", "unknown"),
             tickers=list(tickers),
             start=start.isoformat(),
-            end=end.isoformat(),
+            end=clamped_end.isoformat(),
             fetched=len(fetched),
             returned=len(bars),
             rejected=gate.rejected_count,

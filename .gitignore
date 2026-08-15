@@ -18,15 +18,7 @@ build/
 *.key
 
 # Data artifacts — raw/proprietary data must not be committed
-data/raw/*
-data/normalized/*
-data/features/*
-data/evidence/*
-data/snapshots/*
-data/backtests/*
-data/analysis/*
-data/paper_trading/*
-data/logs/
+data/*
 !data/**/.gitkeep
 *.parquet
 *.duckdb

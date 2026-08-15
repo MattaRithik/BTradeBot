@@ -11,6 +11,7 @@ from quant_platform.core.enums import AuditEventType
 from quant_platform.core.gatekeeper import FutureDataGate, LookaheadError, ResearchContext
 from quant_platform.core.schemas import PredictionSnapshot
 from quant_platform.snapshots import freeze_snapshot
+from quant_platform.snapshots.freeze import verify_snapshot_integrity
 
 
 def _context(with_window: bool = True) -> ResearchContext:
@@ -25,9 +26,12 @@ def _context(with_window: bool = True) -> ResearchContext:
 
 
 class TestFreeze:
-    def test_requires_test_window(self):
-        with pytest.raises(ValueError, match="test window"):
-            freeze_snapshot(_context(with_window=False))
+    def test_freezes_without_test_window(self):
+        # research decisions freeze WITHOUT future evaluation endpoints
+        snap = freeze_snapshot(_context(with_window=False))
+        assert snap.test_start is None
+        assert snap.test_end is None
+        assert snap.integrity_hash
 
     def test_snapshot_is_immutable(self):
         from pydantic import ValidationError
@@ -45,8 +49,26 @@ class TestFreeze:
         )
         assert snap.config_hash
         assert snap.data_snapshot_hash
-        assert snap.visible_cutoff.endswith("23:59:59.999999+00:00")
+        # decision clock: 2024-12-31 16:15 America/New_York == 21:15 UTC
+        assert snap.visible_cutoff.endswith("21:15:00+00:00")
+        assert snap.cutoff_timezone == "America/New_York"
+        assert snap.integrity_hash
         assert snap.frozen_at
+
+    def test_integrity_verification_detects_tampering(self):
+        snap = freeze_snapshot(_context())
+        assert verify_snapshot_integrity(snap)
+        tampered = snap.model_copy(update={"universe_methodology": "tampered"})
+        assert not verify_snapshot_integrity(tampered)
+
+    def test_prompt_versions_and_universe_methodology_recorded(self):
+        snap = freeze_snapshot(
+            _context(),
+            prompt_versions={"sector": "abc123"},
+            universe_methodology="static_configured_universe",
+        )
+        assert snap.prompt_versions == {"sector": "abc123"}
+        assert snap.universe_methodology == "static_configured_universe"
 
     def test_deterministic_hashes(self, tmp_path):
         f1 = tmp_path / "a.bin"
@@ -75,3 +97,21 @@ class TestFutureGateIntegration:
         start, end = gate.open_test_window()
         assert start.date() == date(2025, 1, 1)
         assert end.date() == date(2025, 2, 28)
+
+    def test_store_backed_gate_requires_persisted_snapshot(self, store):
+        ctx = _context()
+        gate = FutureDataGate(context=ctx, store=store)
+        with pytest.raises(LookaheadError, match="no persisted prediction snapshot"):
+            gate.open_test_window()
+        freeze_snapshot(ctx, store=store)
+        start, end = FutureDataGate(context=ctx, store=store).open_test_window()
+        assert start.date() == date(2025, 1, 1)
+        assert end.date() == date(2025, 2, 28)
+
+    def test_store_backed_gate_rejects_tampered_snapshot(self, store):
+        ctx = _context()
+        snap = freeze_snapshot(ctx, store=store)
+        tampered = snap.model_copy(update={"warnings": ["injected"]})
+        store.save_model("snapshots", snap.snapshot_id, tampered)
+        with pytest.raises(LookaheadError, match="integrity"):
+            FutureDataGate(context=ctx, store=store).open_test_window()

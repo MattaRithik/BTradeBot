@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 
 from pydantic import Field
@@ -20,8 +22,9 @@ class PredictionSnapshot(PlatformModel, frozen=True):
     run_id: str
     as_of_date: date
     visible_cutoff: str  # ISO instant of exact visible-data cutoff
-    test_start: date
-    test_end: date
+    cutoff_timezone: str = ""  # market timezone the cutoff was localized in
+    test_start: date | None = None  # evaluation metadata — may be unknown at freeze
+    test_end: date | None = None
     active_thesis_ids: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
     ranking: RankingResult | None = None
@@ -31,8 +34,18 @@ class PredictionSnapshot(PlatformModel, frozen=True):
     prompt_versions: dict[str, str] = Field(default_factory=dict)
     config_hash: str = ""
     data_snapshot_hash: str = ""
+    universe_methodology: str = ""
     warnings: list[str] = Field(default_factory=list)
+    integrity_hash: str = ""  # self-hash over the canonical JSON (see below)
     frozen_at: str = ""  # ISO instant when frozen
+
+
+def snapshot_integrity_hash(snapshot: PredictionSnapshot) -> str:
+    """sha256 over the canonical JSON of the snapshot, integrity_hash excluded."""
+    payload = snapshot.model_dump(mode="json")
+    payload.pop("integrity_hash", None)
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
 class WalkForwardSplit(PlatformModel):

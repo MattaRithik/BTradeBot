@@ -15,7 +15,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from quant_platform.core.audit import AuditLogger
 from quant_platform.core.config import EnvSettings, load_dotenv_if_present, load_yaml_config
+from quant_platform.core.store import ArtifactStore
 from quant_platform.data.bloomberg_desktop import BloombergDesktopAdapter
 from quant_platform.data.bloomberg_export import BloombergExportAdapter, BloombergExportError
 from quant_platform.models import ModelProviderError
@@ -29,7 +31,14 @@ from quant_platform.research_runtime import (
 research_app = typer.Typer(help="Real research runtime (Bloomberg + Kimi).", no_args_is_help=True)
 console = Console()
 
-_STATUS_STYLE = {"PASS": "green", "FAIL": "red", "WARN": "yellow", "NOT_ENTITLED": "yellow", "SKIPPED": "dim"}
+_STATUS_STYLE = {
+    "PASS": "green",
+    "FAIL": "red",
+    "WARN": "yellow",
+    "NOT_CONFIGURED": "yellow",
+    "NOT_ENTITLED": "yellow",
+    "SKIPPED": "dim",
+}
 
 
 def _row(table: Table, check: str, status: str, detail: str) -> None:
@@ -107,7 +116,7 @@ def doctor() -> None:
         _row(
             table,
             "newscatcher api",
-            "WARN",
+            "NOT_CONFIGURED",
             "NEWSCATCHER_API_KEY not set — Bloomberg export news is the fallback",
         )
     else:
@@ -189,6 +198,7 @@ def run(
         inbox = Path(load_yaml_config("bloomberg")["export"]["inbox"])
         adapter = BloombergExportAdapter(inbox)
 
+    audit = AuditLogger(settings.data_root / "logs" / "audit.jsonl")
     try:
         summary = asyncio.run(
             run_research(
@@ -197,12 +207,38 @@ def run(
                 as_of=parsed_as_of,
                 history_days=days,
                 market_adapter=adapter,
+                audit=audit,
                 with_backtest=not no_backtest,
             )
         )
     except (ResearchRuntimeError, ModelProviderError, BloombergExportError, ConnectionError) as exc:
         console.print(f"[red]research run failed honestly:[/red] {exc}")
         raise typer.Exit(code=1) from exc
+
+    # auditable run manifest (never contains secrets)
+    manifest_path = ArtifactStore(settings.data_root).save_manifest(
+        summary["run_id"],
+        {
+            "run_id": summary["run_id"],
+            "kind": "research",
+            "as_of_date": summary["as_of_date"],
+            "test_window": summary["test_window"],
+            "data_source": summary["data_source"],
+            "model_provider": summary["provider"],
+            "news_sources": summary["news_sources"],
+            "bars_visible": summary["bars_visible"],
+            "news_visible": summary["news_visible"],
+            "evidence_cards": summary["evidence_cards"],
+            "theses": summary["theses"],
+            "selected_sectors": summary["selected_sectors"],
+            "portfolio_positions": summary["portfolio_positions"],
+            "cash_weight": summary["cash_weight"],
+            "snapshot_id": summary["snapshot_id"],
+            "model_calls": summary["model_calls"],
+            "model_cost_usd": summary["model_cost_usd"],
+            "warnings": summary["warnings"],
+        },
+    )
 
     console.print(f"[bold green]research run complete[/bold green] run_id={summary['run_id']}")
     console.print(f"as_of={summary['as_of_date']}  test_window={summary['test_window']}")
@@ -234,3 +270,4 @@ def run(
         console.print(f"model: calls={summary['model_calls']}  cost_usd={summary['model_cost_usd']:.6f}")
     for warning in summary["warnings"]:
         console.print(f"[yellow]warning:[/yellow] {warning}")
+    console.print(f"manifest: {manifest_path}")

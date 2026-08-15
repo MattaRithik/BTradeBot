@@ -9,7 +9,11 @@ per-run budget (0 = disabled).
 
 from __future__ import annotations
 
+import json
+import threading
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -89,6 +93,68 @@ class UsageTracker:
         self.prompt_tokens += prompt_tokens
         self.completion_tokens += completion_tokens
         self.cost_usd += cost_usd
+
+
+class DailyUsageLedger:
+    """Persistent per-UTC-day model spend ledger (survives process restarts).
+
+    One JSON file per UTC day (``<dir>/YYYY-MM-DD.json``). The guard is
+    checked BEFORE each call: once the day's accumulated cost has reached
+    the configured daily budget, further calls are refused with
+    BudgetExceededError. A budget of 0 disables the guard (spend is still
+    recorded, so usage accounting never depends on the guard being on).
+    """
+
+    def __init__(self, directory: Path | str, budget_usd_per_day: float = 0.0) -> None:
+        if budget_usd_per_day < 0:
+            raise ValueError("daily budget must be >= 0 (0 = disabled)")
+        self.directory = Path(directory)
+        self.budget_usd_per_day = budget_usd_per_day
+        self._lock = threading.Lock()
+
+    @staticmethod
+    def _today() -> str:
+        return datetime.now(UTC).date().isoformat()
+
+    def _path(self, day: str) -> Path:
+        return self.directory / f"{day}.json"
+
+    def _read(self, day: str) -> dict[str, Any]:
+        path = self._path(day)
+        if not path.exists():
+            return {"day": day, "calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"day": day, "calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "cost_usd": 0.0}
+        return data
+
+    def spent_today(self) -> float:
+        return float(self._read(self._today()).get("cost_usd", 0.0))
+
+    def check_budget(self) -> None:
+        """Raise BEFORE a call if today's spend already hit the daily budget."""
+        if self.budget_usd_per_day <= 0:
+            return
+        spent = self.spent_today()
+        if spent >= self.budget_usd_per_day:
+            raise BudgetExceededError(
+                f"model budget exhausted: ${spent:.6f} spent of "
+                f"${self.budget_usd_per_day:.6f} per-day budget — call refused"
+            )
+
+    def record(self, prompt_tokens: int, completion_tokens: int, cost_usd: float) -> None:
+        with self._lock:
+            self.directory.mkdir(parents=True, exist_ok=True)
+            day = self._today()
+            data = self._read(day)
+            data["calls"] = int(data.get("calls", 0)) + 1
+            data["prompt_tokens"] = int(data.get("prompt_tokens", 0)) + prompt_tokens
+            data["completion_tokens"] = int(data.get("completion_tokens", 0)) + completion_tokens
+            data["cost_usd"] = float(data.get("cost_usd", 0.0)) + cost_usd
+            tmp = self._path(day).with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            tmp.replace(self._path(day))
 
 
 class ModelProvider(ABC):

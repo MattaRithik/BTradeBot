@@ -12,11 +12,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from quant_platform.core.audit import AuditLogger
+from quant_platform.core.decision import DecisionClock, load_decision_clock
 from quant_platform.core.enums import AuditEventType, PlatformModel
 from quant_platform.core.timeutil import end_of_day_utc
 
@@ -35,11 +36,17 @@ class ResearchContext(PlatformModel, frozen=True):
     test_start: date | None = None  # set by the evaluation layer only
     test_end: date | None = None
     cutoff_inclusive: bool = True  # items usable exactly AT cutoff are visible
+    decision_clock: DecisionClock = Field(default_factory=load_decision_clock)
 
     @property
     def cutoff_instant(self) -> datetime:
-        """Exact visible-data cutoff instant (end of as_of day, UTC)."""
-        return end_of_day_utc(self.as_of_date)
+        """Exact visible-data cutoff instant (decision time in market tz, UTC)."""
+        return self.decision_clock.cutoff_for(self.as_of_date)
+
+    @property
+    def cutoff_timezone(self) -> str:
+        """Market timezone the decision clock localizes the cutoff in."""
+        return self.decision_clock.market_timezone
 
 
 class _Usable(Protocol):
@@ -116,13 +123,45 @@ class FutureDataGate(PlatformModel):
 
     The evaluation layer calls ``open_test_window`` ONLY after a prediction
     snapshot exists; research code never holds this object.
+
+    When an ArtifactStore is injected, the gate VERIFIES that a persisted
+    PredictionSnapshot for this context's run_id actually exists on disk and
+    that its integrity hash validates — a self-asserted ``snapshot_frozen``
+    flag alone is no longer sufficient. The bare constructor path
+    (no store) remains for lightweight unit tests.
     """
 
+    model_config = ConfigDict(**PlatformModel.model_config, arbitrary_types_allowed=True)
+
     context: ResearchContext
+    store: Any = None  # ArtifactStore (avoid a heavy import in core)
     snapshot_frozen: bool = Field(default=False)
 
+    def _verified_snapshot(self) -> Any:
+        """Load + integrity-check the persisted snapshot for this run."""
+        from quant_platform.core.ids import stable_id
+        from quant_platform.core.schemas import PredictionSnapshot
+        from quant_platform.snapshots.freeze import verify_snapshot_integrity
+
+        snapshot_id = stable_id("snap", self.context.run_id, self.context.as_of_date.isoformat())
+        path = self.store.dir("snapshots") / f"{snapshot_id}.json"
+        if not path.exists():
+            raise LookaheadError(
+                f"no persisted prediction snapshot for run {self.context.run_id!r} — "
+                "the test window may only open AFTER a snapshot is frozen to disk"
+            )
+        snapshot = PredictionSnapshot.model_validate_json(path.read_text(encoding="utf-8"))
+        if not verify_snapshot_integrity(snapshot):
+            raise LookaheadError(
+                f"prediction snapshot {snapshot_id!r} failed integrity verification — "
+                "refusing to open the test window against a tampered snapshot"
+            )
+        return snapshot
+
     def open_test_window(self) -> tuple[datetime, datetime]:
-        if not self.snapshot_frozen:
+        if self.store is not None:
+            self._verified_snapshot()
+        elif not self.snapshot_frozen:
             raise LookaheadError(
                 "future test data may only be opened AFTER the prediction snapshot is frozen"
             )

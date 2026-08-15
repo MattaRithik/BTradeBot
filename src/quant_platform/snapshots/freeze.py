@@ -21,8 +21,16 @@ from quant_platform.core.schemas import (
     RankingResult,
     SignalPackage,
 )
+from quant_platform.core.schemas.backtest import snapshot_integrity_hash
 from quant_platform.core.store import ArtifactStore
 from quant_platform.core.timeutil import utc_now
+
+
+def verify_snapshot_integrity(snapshot: PredictionSnapshot) -> bool:
+    """True when the snapshot's self-hash matches its canonical content."""
+    return bool(snapshot.integrity_hash) and snapshot.integrity_hash == snapshot_integrity_hash(
+        snapshot
+    )
 
 
 def freeze_snapshot(
@@ -35,13 +43,18 @@ def freeze_snapshot(
     configs: dict | None = None,
     data_files: list[Path] | None = None,
     model_versions: dict[str, str] | None = None,
+    prompt_versions: dict[str, str] | None = None,
+    universe_methodology: str = "",
+    warnings: list[str] | None = None,
     store: ArtifactStore | None = None,
     audit: AuditLogger | None = None,
 ) -> PredictionSnapshot:
-    """Create + persist the immutable snapshot for one research run."""
-    if context.test_start is None or context.test_end is None:
-        raise ValueError("snapshot requires a context with a test window defined")
+    """Create + persist the immutable snapshot for one research run.
 
+    A research decision freezes WITHOUT requiring future evaluation
+    endpoints: ``test_start``/``test_end`` are optional evaluation metadata,
+    never a precondition for freezing.
+    """
     cfg_hash = config_hash(configs) if configs else ""
     data_hash = ""
     if data_files:
@@ -54,6 +67,7 @@ def freeze_snapshot(
         run_id=context.run_id,
         as_of_date=context.as_of_date,
         visible_cutoff=context.cutoff_instant.isoformat(),
+        cutoff_timezone=context.cutoff_timezone,
         test_start=context.test_start,
         test_end=context.test_end,
         active_thesis_ids=active_thesis_ids or [],
@@ -62,10 +76,14 @@ def freeze_snapshot(
         signals=signals,
         portfolio=portfolio,
         model_versions=model_versions or {},
+        prompt_versions=prompt_versions or {},
         config_hash=cfg_hash,
         data_snapshot_hash=data_hash,
+        universe_methodology=universe_methodology,
+        warnings=warnings or [],
         frozen_at=utc_now().isoformat(),
     )
+    snapshot = snapshot.model_copy(update={"integrity_hash": snapshot_integrity_hash(snapshot)})
     if store is not None:
         store.save_model("snapshots", snapshot.snapshot_id, snapshot)
     if audit is not None:
@@ -76,7 +94,8 @@ def freeze_snapshot(
             snapshot_id=snapshot.snapshot_id,
             config_hash=cfg_hash,
             data_snapshot_hash=data_hash,
-            test_start=context.test_start.isoformat(),
-            test_end=context.test_end.isoformat(),
+            integrity_hash=snapshot.integrity_hash,
+            test_start=context.test_start.isoformat() if context.test_start else "",
+            test_end=context.test_end.isoformat() if context.test_end else "",
         )
     return snapshot

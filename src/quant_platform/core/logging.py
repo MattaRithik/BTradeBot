@@ -9,8 +9,8 @@ from pathlib import Path
 import structlog
 
 _SECRET_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*)\S+"), r"\1***"),
-    (re.compile(r"(?i)bearer\s+)\S+"), r"\1***"),
+    (re.compile(r"(?i)((?:api[_-]?key|token|secret|password)\s*[:=]\s*)\S+"), r"\1***"),
+    (re.compile(r"(?i)(bearer\s+)\S+"), r"\1***"),
 ]
 
 

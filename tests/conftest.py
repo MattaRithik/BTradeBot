@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 
 from quant_platform.core.audit import AuditLogger
+from quant_platform.core.decision import DecisionClock
 from quant_platform.core.enums import Direction, EvidenceCategory, SourceType
 from quant_platform.core.gatekeeper import ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import EvidenceCard, MarketBar, NewsRecord
 from quant_platform.core.store import ArtifactStore
-from quant_platform.core.timeutil import end_of_day_utc
 
 AS_OF = date(2024, 12, 31)
 VISIBLE_START = date(2023, 1, 1)
@@ -100,4 +100,4 @@ def store(tmp_path: Path) -> ArtifactStore:
     return ArtifactStore(tmp_path / "data")
 
 
-CUTOFF = end_of_day_utc(AS_OF)
+CUTOFF = DecisionClock().cutoff_for(AS_OF)  # 2024-12-31 16:15 ET == 21:15 UTC

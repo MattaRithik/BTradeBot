@@ -126,3 +126,36 @@ def test_cache_frame_saves_parquet(context: ResearchContext, audit, store) -> No
     assert path.exists()
     assert path.parent == store.dir("normalized")
     assert store.load_table("normalized", f"bars_{context.run_id}").equals(df)
+
+
+class SpyMarketProvider:
+    """Records the exact request window the provider was asked for."""
+
+    name = "spy_market"
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[date, date]] = []
+
+    def get_history(self, tickers, start, end, fields=None):
+        self.calls.append((start, end))
+        return []
+
+
+def test_get_bars_clamps_request_window_before_fetch(context: ResearchContext, audit) -> None:
+    """A post-cutoff end date must never reach the provider (clamp, then filter)."""
+    spy = SpyMarketProvider()
+    repo = PITRepository(spy, audit=audit)
+    repo.get_bars(context, ["NVDA"], date(2024, 1, 1), date(2025, 6, 30))
+    assert spy.calls == [(date(2024, 1, 1), context.as_of_date)]
+    events = [e for e in audit.read_all() if e["event"] == AuditEventType.DATA_WINDOW_CLAMPED.value]
+    assert len(events) == 1
+    assert events[0]["details"]["requested_end"] == "2025-06-30"
+    assert events[0]["details"]["clamped_end"] == context.as_of_date.isoformat()
+
+
+def test_get_bars_no_clamp_when_window_already_pit(context: ResearchContext, audit) -> None:
+    spy = SpyMarketProvider()
+    repo = PITRepository(spy, audit=audit)
+    repo.get_bars(context, ["NVDA"], date(2024, 1, 1), date(2024, 12, 30))
+    assert spy.calls == [(date(2024, 1, 1), date(2024, 12, 30))]
+    assert audit.count_by_type(AuditEventType.DATA_WINDOW_CLAMPED) == 0

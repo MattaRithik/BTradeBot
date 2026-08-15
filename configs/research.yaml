@@ -1,0 +1,7 @@
+# Research-run semantics: the decision clock defines WHEN a run's PIT cutoff
+# falls. A run --as-of 2025-01-31 behaves as if the decision is made at
+# decision_time in market_timezone on that date — NOT at end-of-day UTC.
+decision_clock:
+  market_timezone: America/New_York
+  decision_time: "16:15"        # local market time of the research decision
+  execution_timing: next_session_open

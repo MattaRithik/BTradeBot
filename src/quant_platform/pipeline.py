@@ -24,7 +24,7 @@ from quant_platform.agents.orchestrator import AgentOrchestrator
 from quant_platform.analysis import build_failure_record
 from quant_platform.backtest import BacktestConfig, run_backtest
 from quant_platform.core.audit import AuditLogger
-from quant_platform.core.config import load_yaml_config
+from quant_platform.core.config import load_all_configs, load_yaml_config
 from quant_platform.core.enums import SourceType
 from quant_platform.core.gatekeeper import FutureDataGate, ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import (
@@ -251,11 +251,16 @@ async def run_demo(
         context, ranking=ranking, signals=signal_package, portfolio=target,
         active_thesis_ids=[s.thesis.thesis_id for s in submissions],
         evidence_ids=[c.evidence_id for c in cards],
-        configs={"scoring": load_yaml_config("scoring"), "universe": load_yaml_config("universe")},
+        configs=load_all_configs(),
         data_files=[prices_csv], model_versions={"provider": "mock"},
+        universe_methodology=(
+            "static_configured_universe on SYNTHETIC demo data — not a real "
+            "historical claim; survivorship-bias labelling N/A"
+        ),
+        warnings=signal_package.warnings,
         store=store, audit=audit,
     )
-    test_window = FutureDataGate(context=context, snapshot_frozen=True).open_test_window()
+    test_window = FutureDataGate(context=context, store=store).open_test_window()
     full_df = pd.DataFrame([b.model_dump() for b in adapter.get_history(tickers, start, end)])
     full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
     test_prices = full_df[full_df["timestamp"] >= pd.Timestamp(test_window[0])]

@@ -40,7 +40,7 @@ from quant_platform.agents.orchestrator import AgentOrchestrator
 from quant_platform.analysis import build_failure_record
 from quant_platform.backtest import BacktestConfig, run_backtest
 from quant_platform.core.audit import AuditLogger
-from quant_platform.core.config import EnvSettings, load_yaml_config
+from quant_platform.core.config import EnvSettings, load_all_configs, load_yaml_config
 from quant_platform.core.enums import AuditEventType, SourceType
 from quant_platform.core.gatekeeper import FutureDataGate, ResearchContext, TimeGatekeeper
 from quant_platform.core.schemas import (
@@ -289,10 +289,12 @@ async def run_research(
     warnings: list[str] = []
     has_test_data = bool(post_days)
     if has_test_data:
-        test_start, test_end = post_days[0], post_days[-1]
+        test_start: date | None = post_days[0]
+        test_end: date | None = post_days[-1]
     else:
-        # declared future window (freeze requires one); evaluation waits for data
-        test_start, test_end = as_of + timedelta(days=1), as_of + timedelta(days=63)
+        # research decisions freeze WITHOUT future endpoints — evaluation
+        # happens later via `quantctl evaluate snapshot` once data exists
+        test_start, test_end = None, None
         warnings.append("no post-as-of data yet — snapshot frozen, evaluate later (backtest skipped)")
 
     run_id = f"research_{as_of.isoformat()}_{utc_now().strftime('%Y%m%dT%H%M%SZ')}"
@@ -473,6 +475,7 @@ async def run_research(
             if news_dir.is_dir()
             else []
         )
+        features_file = store.dir("features") / f"features_{run_id}.parquet"
         provider_name = getattr(provider, "name", "unknown")
         snapshot = freeze_snapshot(
             context,
@@ -481,14 +484,19 @@ async def run_research(
             portfolio=target,
             active_thesis_ids=[s.thesis.thesis_id for s in submissions],
             evidence_ids=[c.evidence_id for c in cards],
-            configs={"scoring": load_yaml_config("scoring"), "universe": load_yaml_config("universe")},
-            data_files=news_files,
+            configs=load_all_configs(),
+            data_files=[*news_files, features_file],
             model_versions={
                 "provider": str(provider_name),
                 "model": str(getattr(provider, "model", provider_name)),
                 "data_source": source_name,
                 "news_providers": ",".join(s for s in ("newscatcher", "bloomberg_export") if news_sources[s]),
             },
+            universe_methodology=(
+                "static_configured_universe (configs/universe.yaml) — historical "
+                "results are survivorship-biased; no point-in-time constituents"
+            ),
+            warnings=warnings + signal_package.warnings,
             store=store,
             audit=audit,
         )
@@ -497,7 +505,7 @@ async def run_research(
         backtest_metrics = benchmarks = None
         failure = None
         if with_backtest and has_test_data:
-            test_window = FutureDataGate(context=context, snapshot_frozen=True).open_test_window()
+            test_window = FutureDataGate(context=context, store=store).open_test_window()
             full_df = pd.DataFrame([b.model_dump() for b in full_bars])
             full_df["timestamp"] = pd.to_datetime(full_df["timestamp"], utc=True)
             test_prices = full_df[full_df["timestamp"] >= pd.Timestamp(test_window[0])]
@@ -527,7 +535,11 @@ async def run_research(
         return {
             "run_id": run_id,
             "as_of_date": as_of.isoformat(),
-            "test_window": [test_start.isoformat(), test_end.isoformat()],
+            "test_window": (
+                [test_start.isoformat(), test_end.isoformat()]
+                if test_start is not None and test_end is not None
+                else None
+            ),
             "data_source": source_name,
             "provider": str(provider_name),
             "news_dir": str(news_dir),

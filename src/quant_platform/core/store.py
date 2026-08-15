@@ -68,6 +68,21 @@ class ArtifactStore:
     def load_table(self, sub: str, name: str) -> pd.DataFrame:
         return pd.read_parquet(self.dir(sub) / f"{name}.parquet")
 
+    # -- run-scoped manifests ------------------------------------------------
+    def run_dir(self, run_id: str) -> Path:
+        """Run-scoped artifact directory ``runs/<run_id>/`` (created on demand)."""
+        path = self.root / "runs" / run_id
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def save_manifest(self, run_id: str, manifest: dict[str, Any]) -> Path:
+        """Persist the auditable run manifest (never contains secrets)."""
+        path = self.run_dir(run_id) / "manifest.json"
+        path.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True, default=str), encoding="utf-8"
+        )
+        return path
+
     # -- discovery ---------------------------------------------------------
     def list_artifacts(self, sub: str, suffix: str = "") -> list[Path]:
         files = sorted(self.dir(sub).iterdir())
