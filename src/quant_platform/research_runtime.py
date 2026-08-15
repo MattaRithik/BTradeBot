@@ -59,7 +59,7 @@ from quant_platform.data.bloomberg_export import BloombergExportAdapter
 from quant_platform.data.newscatcher import NewsCatcherError, NewsCatcherProvider
 from quant_platform.data.repository import PITRepository
 from quant_platform.data.validation import DataValidationError
-from quant_platform.features.engine import compute_features
+from quant_platform.features.engine import compute_features, returns_frame
 from quant_platform.models import KimiProvider, ModelProvider, ModelRequest
 from quant_platform.pipeline import _sector_label_map
 from quant_platform.portfolio import apply_risk_constraints, build_strategy
@@ -564,7 +564,7 @@ async def run_research(
             company_factors=factors, audit=audit,
         )
         target = build_strategy("ensemble", signal_package.actionable, features, run_id, as_of)
-        target = apply_risk_constraints(target, features=features)
+        target = apply_risk_constraints(target, features=features, returns=returns_frame(df))
 
         # 8. freeze BEFORE the future opens
         news_files = (

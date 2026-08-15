@@ -59,9 +59,14 @@ def apply_risk_constraints(
     target: PortfolioTarget,
     config: RiskConfig | None = None,
     features: pd.DataFrame | None = None,
+    returns: pd.DataFrame | None = None,
 ) -> PortfolioTarget:
     """Clamp a PortfolioTarget to the risk limits. Order: shorts → liquidity →
-    position count → per-ticker → per-sector → gross/net → volatility target."""
+    position count → per-ticker → per-sector → gross/net → volatility target.
+
+    ``returns`` is an optional date x ticker daily-return frame enabling the
+    covariance-based portfolio vol estimate; without it the conservative
+    weighted-vol fallback is used."""
     cfg = config or RiskConfig()
     warnings: list[str] = []
     positions = list(target.positions)
@@ -141,23 +146,54 @@ def apply_risk_constraints(
             p.weight = p.weight * scale
 
     # 7. volatility target (scale the whole book down, never up)
-    if features is not None and not features.empty and positions:
-        fmap = {str(r["ticker"]): r for r in features.to_dict(orient="records")}
-        port_vol = 0.0
-        known = True
-        for p in positions:
-            vol = fmap.get(p.ticker, {}).get("realized_vol_21d")
-            if vol is None or (isinstance(vol, float) and math.isnan(vol)):
-                known = False
-                break
-            port_vol += abs(p.weight) * float(vol)
-        if known and port_vol > cfg.volatility_target_annual:
+    if positions:
+        port_vol, method = _estimate_portfolio_vol(positions, features, returns)
+        if port_vol is None:
+            warnings.append("portfolio vol unmeasurable (missing vols/history) — no scaling applied")
+        elif port_vol > cfg.volatility_target_annual:
             scale = cfg.volatility_target_annual / port_vol
             warnings.append(
-                f"portfolio vol {port_vol:.3f} above target "
+                f"portfolio vol {port_vol:.3f} ({method}) above target "
                 f"{cfg.volatility_target_annual:.3f} — scaled by {scale:.3f}"
             )
             for p in positions:
                 p.weight = p.weight * scale
 
     return _rebalance(target, positions, warnings)
+
+
+def _estimate_portfolio_vol(
+    positions: list[PortfolioPosition],
+    features: pd.DataFrame | None,
+    returns: pd.DataFrame | None,
+) -> tuple[float | None, str]:
+    """Annualized portfolio vol estimate + the method used.
+
+    Preferred: w'Σw over the historical daily-return covariance (correlations
+    included) when every position has enough return history. Fallback: the
+    conservative sum(|w| * vol) upper bound from per-ticker realized vol.
+    Returns (None, method) when even the fallback is unmeasurable.
+    """
+    tickers = [p.ticker for p in positions]
+    weights = pd.Series({p.ticker: abs(p.weight) for p in positions})
+
+    if returns is not None and not returns.empty:
+        cols = [t for t in tickers if t in returns.columns]
+        if len(cols) == len(tickers):
+            window = returns[cols].dropna().tail(63)
+            if len(window) >= 21:
+                cov = window.cov() * 252
+                w = weights[cols].to_numpy()
+                var = float(w @ cov.to_numpy() @ w)
+                return math.sqrt(max(var, 0.0)), "covariance"
+
+    if features is None or features.empty:
+        return None, "unavailable"
+    fmap = {str(r["ticker"]): r for r in features.to_dict(orient="records")}
+    port_vol = 0.0
+    for p in positions:
+        vol = fmap.get(p.ticker, {}).get("realized_vol_21d")
+        if vol is None or (isinstance(vol, float) and math.isnan(vol)):
+            return None, "unavailable"
+        port_vol += abs(p.weight) * float(vol)
+    return port_vol, "weighted-vol fallback (correlations ignored)"

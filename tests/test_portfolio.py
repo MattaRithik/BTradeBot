@@ -215,3 +215,42 @@ class TestRiskConstraints:
         out = apply_risk_constraints(target, RiskConfig())
         assert out.cash_weight == 1.0
         assert out.positions == []
+
+
+class TestCovarianceVol:
+    def _positions(self):
+        from quant_platform.core.schemas import PortfolioPosition
+
+        return [
+            PortfolioPosition(ticker="A", weight=0.5, sector="s", rationale=""),
+            PortfolioPosition(ticker="B", weight=0.5, sector="s", rationale=""),
+        ]
+
+    def test_covariance_uses_correlations(self):
+        import numpy as np
+
+        from quant_platform.portfolio.risk import _estimate_portfolio_vol
+
+        # perfectly NEGATIVELY correlated pair -> covariance vol << weighted sum
+        n = 40
+        a = pd.Series(np.linspace(-0.02, 0.02, n))
+        returns = pd.DataFrame({"A": a, "B": -a})
+        vol, method = _estimate_portfolio_vol(self._positions(), None, returns)
+        assert method == "covariance"
+        assert vol < 0.01
+
+    def test_fallback_without_returns(self):
+        from quant_platform.portfolio.risk import _estimate_portfolio_vol
+
+        features = pd.DataFrame(
+            {"ticker": ["A", "B"], "realized_vol_21d": [0.2, 0.4]}
+        )
+        vol, method = _estimate_portfolio_vol(self._positions(), features, None)
+        assert "fallback" in method
+        assert vol == pytest.approx(0.5 * 0.2 + 0.5 * 0.4)
+
+    def test_unmeasurable_is_explicit(self):
+        from quant_platform.portfolio.risk import _estimate_portfolio_vol
+
+        vol, _ = _estimate_portfolio_vol(self._positions(), None, None)
+        assert vol is None

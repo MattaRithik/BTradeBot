@@ -39,7 +39,7 @@ from quant_platform.data.bloomberg_export import BloombergExportAdapter
 from quant_platform.data.repository import PITRepository
 from quant_platform.data.sample_data import generate_sample_export, generate_sample_news
 from quant_platform.data.validation import DataValidationError
-from quant_platform.features.engine import compute_features
+from quant_platform.features.engine import compute_features, returns_frame
 from quant_platform.models import MockModelProvider
 from quant_platform.portfolio import apply_risk_constraints, build_strategy
 from quant_platform.research import (
@@ -273,7 +273,7 @@ async def run_demo(
         company_factors=factors, audit=audit,
     )
     target = build_strategy("ensemble", signal_package.actionable, features, run_id, as_of)
-    target = apply_risk_constraints(target, features=features)
+    target = apply_risk_constraints(target, features=features, returns=returns_frame(df))
 
     # 7. freeze BEFORE the future opens; then evaluate on the test window
     snapshot = freeze_snapshot(

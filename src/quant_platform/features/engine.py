@@ -175,3 +175,15 @@ def compute_features(
         out["sector_rel_strength_63d"] = np.nan
 
     return out[FEATURE_COLUMNS].reset_index(drop=True)
+
+
+def returns_frame(bars_df: pd.DataFrame) -> pd.DataFrame:
+    """Date-by-ticker daily simple-return frame from a tidy bars DataFrame.
+
+    Used for the covariance-based portfolio risk estimate. Caller is
+    responsible for passing only gatekeeper-visible bars.
+    """
+    if bars_df.empty:
+        return pd.DataFrame()
+    prices = bars_df.pivot_table(index="timestamp", columns="ticker", values="close")
+    return prices.sort_index().pct_change().dropna(how="all")
