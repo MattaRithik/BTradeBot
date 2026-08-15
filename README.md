@@ -23,6 +23,7 @@ python -m pip install -e ".[dev]"         # everything needed for tests; add ,ex
 
 quantctl doctor                           # environment + safety checks
 quantctl demo                             # end-to-end OFFLINE run (synthetic data, mock model)
+quantctl research doctor                  # readiness for a REAL run (needs Bloomberg data + KIMI_API_KEY — see below)
 python -m pytest -q                       # full test suite
 ```
 
@@ -34,6 +35,7 @@ cd BTradeBot
 make setup                       # python3 -m venv .venv && pip install -e ".[dev,dashboard,excel]"
 .venv/bin/quantctl doctor        # environment + safety checks
 .venv/bin/quantctl demo          # end-to-end OFFLINE run (synthetic data, mock model)
+.venv/bin/quantctl research doctor  # readiness for a REAL run (needs Bloomberg data + KIMI_API_KEY — see below)
 .venv/bin/python -m pytest -q    # full test suite
 .venv/bin/ruff check src tests   # lint
 ```
@@ -58,6 +60,18 @@ Bloomberg-style exports and runs every stage through the MockModelProvider.
   export adapter is a first-class path, not a degraded one.
 - **Kimi**: copy `.env.example` to `.env` and set `KIMI_API_KEY`; without it
   everything runs on MockModelProvider.
+- **Real research run**: with Bloomberg data (terminal or export inbox),
+  exported news, and `KIMI_API_KEY` in place:
+  ```powershell
+  quantctl research doctor                          # honest readiness checks (data, news, Kimi ping, safety)
+  quantctl research run --as-of 2025-06-30          # full pipeline, real data + real Kimi
+  ```
+  News must be exported from the terminal as CSV/XLSX into
+  `data/raw/bloomberg_exports/news/` (the machine-readable news API is
+  NOT ENTITLED on most terminals). Paper + dry-run are enforced: the command
+  refuses to run otherwise, and fails clearly if Bloomberg or Kimi is
+  unavailable. Artifacts land in `data/snapshots/`, `data/backtests/`, and
+  the audit log. The offline `quantctl demo` remains the no-key path.
 - **IBKR paper**: run TWS/IB Gateway on a paper port (7497/4002), set
   `IBKR_ACCOUNT=DU...` in `.env`, then `quantctl paper doctor` /
   `quantctl paper dry-run`. Live (non-`DU*`) accounts are refused.
