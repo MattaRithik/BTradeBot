@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from quant_platform.core.enums import OrderStatus
+from quant_platform.core.enums import OrderStatus, PlatformModel
 from quant_platform.core.schemas import (
     PaperAccountSnapshot,
     PaperExecution,
@@ -23,6 +23,14 @@ from quant_platform.core.timeutil import utc_now
 
 class BrokerError(RuntimeError):
     """Honest broker failure — never fake a fill."""
+
+
+class SubmitResult(PlatformModel):
+    """Honest outcome of one broker submission — status may be anything real
+    (FILLED / PARTIALLY_FILLED / CANCELLED / REJECTED / still SUBMITTED)."""
+
+    order: PaperOrder
+    execution: PaperExecution | None = None  # None when nothing filled
 
 
 class BrokerAdapter(ABC):
@@ -42,6 +50,15 @@ class BrokerAdapter(ABC):
 
     @abstractmethod
     def positions(self) -> list[PaperPosition]: ...
+
+    def submit_and_monitor(
+        self, order: PaperOrder, timeout_seconds: float = 30.0
+    ) -> SubmitResult:
+        """Submit and resolve the final order status. The default fills
+        immediately via submit_order (MockBroker); real adapters override with
+        submitted/partial/filled/cancelled/rejected monitoring."""
+        execution = self.submit_order(order)
+        return SubmitResult(order=status_after_submit(order), execution=execution)
 
     def disconnect(self) -> None:  # optional
         return None

@@ -82,4 +82,5 @@ class PaperAccountSnapshot(PlatformModel):
     gross_exposure: float = 0.0
     positions: list[PaperPosition] = Field(default_factory=list)
     open_orders: int = 0
+    day_pnl: float | None = None  # None = broker did not supply it (loss limit unenforceable)
     captured_at: UtcDatetime
