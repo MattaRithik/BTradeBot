@@ -116,3 +116,83 @@ class TestSectorLabelGuard:
 
         assert pd.isna(sector_row["ticker"])  # labels never carry a ticker
         assert sector_row["action_allowed"] == False  # noqa: E712 — numpy bool in frames
+
+
+class TestNewArtifactViews:
+    def test_walkforward_results_and_equity(self, store):
+        import pandas as pd
+
+        from quant_platform.core.schemas import (
+            BacktestMetrics,
+            WalkForwardResult,
+            WalkForwardSplitResult,
+        )
+        from quant_platform.dashboard import load_equity_curve, load_walkforward_results
+
+        run_dir = store.dir("backtests") / "wf_test"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        result = WalkForwardResult(
+            backtest_id="wf_test", start=date(2024, 1, 2), end=date(2024, 6, 28),
+            rebalance="monthly", strategy="ensemble",
+            splits=[WalkForwardSplitResult(
+                as_of_date=date(2024, 1, 31), snapshot_id="snap_x",
+                entry_date="2024-02-01", exit_date="2024-02-29",
+                segment_return=0.01, turnover=0.5, cost=0.001, n_positions=3,
+            )],
+            metrics=BacktestMetrics(cumulative_return=0.05),
+            created_at="2024-07-01T00:00:00+00:00", completed=True,
+        )
+        (run_dir / "result.json").write_text(result.model_dump_json(), encoding="utf-8")
+        pd.DataFrame({"date": ["2024-02-01", "2024-02-02"], "equity": [1.0, 1.01]}).to_parquet(
+            run_dir / "equity.parquet", index=False
+        )
+
+        loaded = load_walkforward_results(store)
+        assert [r.backtest_id for r in loaded] == ["wf_test"]
+        curve = load_equity_curve(store, "wf_test")
+        assert list(curve["equity"]) == [1.0, 1.01]
+        assert load_walkforward_results(store)[0].splits[0].snapshot_id == "snap_x"
+
+    def test_evaluations_view(self, store):
+        from quant_platform.core.schemas import HorizonPerformance, SnapshotEvaluation
+        from quant_platform.dashboard import load_evaluations
+
+        assert load_evaluations(store) == []
+        ev = SnapshotEvaluation(
+            evaluation_id="ev1", snapshot_id="snap_x", run_id="r1",
+            as_of_date=date(2025, 1, 31), visible_cutoff="2025-01-31T21:15:00+00:00",
+            entry_date="2025-02-03",
+            horizons=[HorizonPerformance(horizon="1M", end_date="2025-02-28",
+                                         portfolio_return=0.03,
+                                         benchmark_returns={"SPY": 0.01})],
+            created_at="2025-03-01T00:00:00+00:00",
+        )
+        store.save_model("evaluations", ev.evaluation_id, ev)
+        loaded = load_evaluations(store)
+        assert loaded[0].horizons[0].benchmark_returns["SPY"] == 0.01
+
+    def test_paper_ledger_and_kill_switch(self, store):
+        from quant_platform.dashboard import (
+            kill_switch_engaged,
+            load_paper_ledger,
+            load_reconciliations,
+        )
+        from quant_platform.execution import OrderLedger
+
+        assert load_paper_ledger(store).empty
+        assert not kill_switch_engaged(store)
+
+        ledger = OrderLedger(store.root / "paper_trading" / "ledger.jsonl")
+        from quant_platform.core.enums import OrderStatus
+
+        ledger.record(
+            idempotency_key="k1", intent_id="i1", order_id="o1", ticker="NVDA",
+            side="BUY", quantity=10.0, as_of_date="2025-01-31",
+            status=OrderStatus.FILLED, broker_order_id="42",
+        )
+        df = load_paper_ledger(store)
+        assert len(df) == 1 and df.iloc[0]["ticker"] == "NVDA"
+
+        (store.root / "paper_trading" / "KILL_SWITCH").write_text("engaged: test\n")
+        assert kill_switch_engaged(store)
+        assert load_reconciliations(store) == []

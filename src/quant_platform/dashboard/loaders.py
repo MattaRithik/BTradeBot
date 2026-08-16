@@ -20,6 +20,8 @@ from quant_platform.core.schemas import (
     PredictionSnapshot,
     RankingResult,
     SignalPackage,
+    SnapshotEvaluation,
+    WalkForwardResult,
 )
 from quant_platform.core.store import ArtifactStore
 
@@ -47,6 +49,66 @@ def load_backtests(store: ArtifactStore) -> list[BacktestResult]:
     for path in store.list_artifacts("backtests", ".json"):
         results.append(BacktestResult.model_validate_json(path.read_text(encoding="utf-8")))
     return sorted(results, key=lambda r: r.split.as_of_date, reverse=True)
+
+
+def load_walkforward_results(store: ArtifactStore) -> list[WalkForwardResult]:
+    """Completed walk-forward runs (data/backtests/<backtest_id>/result.json)."""
+    results = []
+    root = store.dir("backtests")
+    for path in sorted(root.glob("*/result.json")):
+        try:
+            results.append(
+                WalkForwardResult.model_validate_json(path.read_text(encoding="utf-8"))
+            )
+        except ValueError:
+            continue  # a partial/older artifact never breaks the dashboard
+    return sorted(results, key=lambda r: r.created_at, reverse=True)
+
+
+def load_equity_curve(store: ArtifactStore, backtest_id: str) -> pd.DataFrame:
+    """Stitched OOS equity curve for one walk-forward run (empty if absent)."""
+    path = store.dir("backtests") / backtest_id / "equity.parquet"
+    if not path.exists():
+        return pd.DataFrame(columns=["date", "equity"])
+    return pd.read_parquet(path)
+
+
+def load_evaluations(store: ArtifactStore) -> list[SnapshotEvaluation]:
+    evals = []
+    for path in store.list_artifacts("evaluations", ".json"):
+        evals.append(
+            SnapshotEvaluation.model_validate_json(path.read_text(encoding="utf-8"))
+        )
+    return sorted(evals, key=lambda e: e.created_at, reverse=True)
+
+
+def load_paper_ledger(store: ArtifactStore) -> pd.DataFrame:
+    """Persistent order-intent ledger as a frame (never contains secrets)."""
+    import json
+
+    path = store.root / "paper_trading" / "ledger.jsonl"
+    if not path.exists():
+        return pd.DataFrame(columns=["idempotency_key", "ticker", "side", "quantity",
+                                     "status", "recorded_at"])
+    rows = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    return pd.DataFrame(rows) if rows else pd.DataFrame()
+
+
+def load_reconciliations(store: ArtifactStore) -> list[dict[str, Any]]:
+    rows = []
+    for path in store.list_artifacts("paper_reconciliations", ".json"):
+        import json
+
+        rows.append(json.loads(path.read_text(encoding="utf-8")))
+    return rows
+
+
+def kill_switch_engaged(store: ArtifactStore) -> bool:
+    return (store.root / "paper_trading" / "KILL_SWITCH").exists()
 
 
 def load_audit(audit_path: Path | str) -> pd.DataFrame:

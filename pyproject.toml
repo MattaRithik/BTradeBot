@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dashboard = ["streamlit>=1.30", "plotly>=5.20"]
+dashboard = ["streamlit>=1.30"]
 bloomberg = []  # blpapi must be installed from Bloomberg's own index; see docs/COLLEGE_CHECKLIST.md
 ibkr = ["ib-async>=2.0"]
 excel = ["openpyxl>=3.1"]
