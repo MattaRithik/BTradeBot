@@ -78,7 +78,7 @@ Minerals · Crypto Infrastructure (configured in `configs/sectors.yaml`).
 ## Point-in-time guarantee
 
 The decision clock is explicit: `market_timezone: America/New_York`,
-`default_decision_time: 16:15` (`configs/research.yaml`). With
+`decision_time: "16:15"` (`configs/research.yaml`). With
 `--as-of 2025-01-31` the system behaves as if it exists at 16:15 ET that day:
 
 - provider request windows are clamped to the cutoff BEFORE fetching, then
