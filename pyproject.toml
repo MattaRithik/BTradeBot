@@ -25,9 +25,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dashboard = ["streamlit>=1.30"]
-bloomberg = []  # blpapi must be installed from Bloomberg's own index; see docs/COLLEGE_CHECKLIST.md
+bloomberg = []  # blpapi installs from Bloomberg's own index; see README.md
 ibkr = ["ib-async>=2.0"]
 excel = ["openpyxl>=3.1"]
+prod = [  # everything the Bloomberg/IBKR machine needs except blpapi itself
+    "streamlit>=1.30",
+    "ib-async>=2.0",
+    "openpyxl>=3.1",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",

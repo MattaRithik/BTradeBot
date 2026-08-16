@@ -7,20 +7,27 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Install
-        run: pip install -e ".[dev,excel]"
+          python-version: ${{ matrix.python-version }}
+      - name: Install (fresh checkout, no paid services)
+        run: python -m pip install -e ".[dev]"
       - name: Lint
-        run: ruff check src tests
+        run: python -m ruff check src tests
       - name: Test
         run: python -m pytest
-      - name: CLI smoke
+      - name: CLI smoke (offline)
         run: |
-          quantctl doctor
-          quantctl config check
-          quantctl paper doctor
+          python -m quant_platform.cli.main doctor
+          python -m quant_platform.cli.main config check
+          python -m quant_platform.cli.main paper doctor
+      - name: Offline demo
+        run: python -m quant_platform.cli.main demo
