@@ -90,6 +90,36 @@ class BacktestResult(PlatformModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class WalkForwardSplitResult(PlatformModel):
+    """One completed out-of-sample segment of a walk-forward backtest."""
+
+    as_of_date: date
+    snapshot_id: str
+    entry_date: str  # first session traded after the decision date
+    exit_date: str  # last session of the segment actually priced
+    segment_return: float
+    turnover: float  # one-way traded notional / equity at entry
+    cost: float  # commissions + slippage as a fraction of equity
+    n_positions: int = 0
+
+
+class WalkForwardResult(PlatformModel):
+    """Stitched result of a TRUE multi-period walk-forward backtest."""
+
+    backtest_id: str
+    start: date
+    end: date
+    rebalance: str
+    strategy: str
+    splits: list[WalkForwardSplitResult] = Field(default_factory=list)
+    metrics: BacktestMetrics | None = None
+    benchmark_returns: dict[str, float] = Field(default_factory=dict)
+    equity_curve_path: str = ""
+    warnings: list[str] = Field(default_factory=list)
+    created_at: str = ""
+    completed: bool = False
+
+
 class HorizonPerformance(PlatformModel):
     """Frozen-portfolio vs benchmark returns over one standard horizon."""
 

@@ -7,7 +7,9 @@ from quant_platform.core.schemas.backtest import (
     PredictionSnapshot,
     SnapshotEvaluation,
     TradeContribution,
+    WalkForwardResult,
     WalkForwardSplit,
+    WalkForwardSplitResult,
 )
 from quant_platform.core.schemas.evidence import (
     CausalEdge,
@@ -84,5 +86,7 @@ __all__ = [
     "TradabilityResult",
     "TradeContribution",
     "ValidationResult",
+    "WalkForwardResult",
     "WalkForwardSplit",
+    "WalkForwardSplitResult",
 ]
