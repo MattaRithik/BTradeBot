@@ -200,7 +200,7 @@ class TestAuth:
         body = client.requests[0]["json"]
         assert body["q"] == "nvidia news"
         assert body["from_"] == "2024-12-01"
-        assert body["to"] == "2024-12-31"
+        assert body["to_"] == "2024-12-31"
         assert body["page"] == 1
         assert body["page_size"] == 50
 

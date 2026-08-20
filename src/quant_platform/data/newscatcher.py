@@ -310,7 +310,7 @@ class NewsCatcherProvider:
         payload = {
             "q": query,
             "from_": from_date.isoformat(),
-            "to": to_date.isoformat(),
+            "to_": to_date.isoformat(),
             "page": page,
             "page_size": page_size or self.page_size,
         }

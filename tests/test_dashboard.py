@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import importlib.util
 
 import pytest
 
@@ -87,6 +88,16 @@ class TestSystemStatus:
     def test_honest_offline_status(self, monkeypatch):
         for var in ("KIMI_API_KEY", "IBKR_ACCOUNT"):
             monkeypatch.delenv(var, raising=False)
+        # deterministic "off-terminal": report blpapi/ib_async as not installed
+        # regardless of what the host machine actually has
+        real_find_spec = importlib.util.find_spec
+        monkeypatch.setattr(
+            importlib.util,
+            "find_spec",
+            lambda name, *a, **k: None
+            if name in ("blpapi", "ib_async")
+            else real_find_spec(name, *a, **k),
+        )
         status = system_status(EnvSettings.from_env())
         assert status["trading_mode"] == "paper"
         assert status["dry_run"] is True

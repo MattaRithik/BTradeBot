@@ -208,7 +208,12 @@ class TestLivePortGuard:
             with pytest.raises(BrokerError, match="LIVE"):
                 IBKRPaperBroker(settings)
 
-    def test_paper_port_passes_port_guard(self):
+    def test_paper_port_passes_port_guard(self, monkeypatch):
+        # deterministic "offline": pretend ib_async is not installed even on
+        # hosts (like the Bloomberg machine) where it is
+        monkeypatch.setattr(
+            "quant_platform.execution.ibkr_paper.IB_ASYNC_AVAILABLE", False
+        )
         settings = EnvSettings(ibkr_port=7497, ibkr_account="DU1234567")
         with pytest.raises(BrokerError, match="ib_async"):  # offline: no client lib
             IBKRPaperBroker(settings)

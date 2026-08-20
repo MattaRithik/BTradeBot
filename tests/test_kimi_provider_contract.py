@@ -144,6 +144,19 @@ class TestSuccessPath:
         await provider.complete(_request())
         assert client.requests[0]["json"]["response_format"] == {"type": "json_object"}
 
+    async def test_fixed_temperature_models_override_request_temperature(self):
+        # kimi-k2.6 rejects any temperature but 1 (HTTP 400) — always send 1
+        client = FakeClient([FakeResponse(200, _chat_body("plain answer"))])
+        provider = _provider(client, settings=EnvSettings(kimi_api_key=_SECRET, kimi_model="kimi-k2.6"))
+        request = ModelRequest(
+            task="macro",
+            system_prompt="you are a test agent",
+            user_prompt="reason about this evidence",
+            temperature=0.2,
+        )
+        await provider.complete(request)
+        assert client.requests[0]["json"]["temperature"] == 1.0
+
     async def test_cost_accounting_from_pricing(self):
         pricing = {"kimi-test": {"input": 1.0, "output": 2.0}}
         client = FakeClient([FakeResponse(200, _chat_body(_argument_payload()))])

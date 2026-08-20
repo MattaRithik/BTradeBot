@@ -54,6 +54,10 @@ _DEFAULT_GATEWAY: dict[str, Any] = {
 }
 _RETRYABLE_STATUS = {429}
 
+# Models that accept only one fixed temperature; the request value is
+# overridden for them, otherwise the gateway rejects the call (HTTP 400).
+_FIXED_TEMPERATURE: dict[str, float] = {"kimi-k2.6": 1.0}
+
 
 def load_gateway_config() -> dict[str, Any]:
     """Gateway section of configs/models.yaml merged over safe defaults."""
@@ -211,7 +215,7 @@ class KimiProvider(ModelProvider):
                 {"role": "user", "content": request.user_prompt},
             ],
             "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
+            "temperature": _FIXED_TEMPERATURE.get(self.model, request.temperature),
         }
         if request.response_schema is not None:
             payload["response_format"] = {"type": "json_object"}
